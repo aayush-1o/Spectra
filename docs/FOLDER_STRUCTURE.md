@@ -28,9 +28,9 @@ simsight/                                  ← project root
 │   │   │   │   ├── persons.py             ← /persons CRUD + search
 │   │   │   │   ├── locations.py           ← /locations CRUD
 │   │   │   │   ├── events.py              ← /events list + filter
-│   │   │   │   ├── graph.py               ← /graph/neighbourhood, /centrality, /path
-│   │   │   │   ├── anomalies.py           ← /anomalies list + run-detection
-│   │   │   │   └── admin.py               ← /admin/generate, /reset, /stats
+│   │   │   │   ├── graph.py               ← /graph/neighbourhood (Redis-cached), /centrality, /path
+│   │   │   │   ├── anomalies.py           ← /anomalies list + run-detection (shared Redis pool)
+│   │   │   │   └── admin.py               ← /admin/metrics — Phase 5 perf snapshot endpoint
 │   │   │   └── deps.py                    ← Shared FastAPI dependencies (get_db, get_current_user)
 │   │   │
 │   │   ├── models/                        ← SQLAlchemy ORM models
@@ -70,32 +70,40 @@ simsight/                                  ← project root
 │   │   ├── middleware/                    ← FastAPI middleware
 │   │   │   ├── __init__.py
 │   │   │   ├── ethics_guard.py            ← Rejects any POST body that looks like real PII
-│   │   │   ├── logging_middleware.py      ← Structured request logging
-│   │   │   └── cors.py                   ← CORS configuration
+│   │   │   ├── timing.py                  ← Phase 5: Request timing, slow-log, X-Response-Time-Ms
+│   │   │   └── logging_middleware.py      ← Structured request logging
 │   │   │
 │   │   └── db/                            ← Database connection management
 │   │       ├── __init__.py
 │   │       ├── postgres.py                ← SQLAlchemy async engine + session factory
-│   │       └── neo4j.py                  ← Neo4j driver singleton
+│   │       ├── neo4j.py                   ← Neo4j driver singleton + ensure_neo4j_indexes()
+│   │       └── redis.py                   ← Phase 5: Shared Redis pool + CacheHelper fallback
 │   │
 │   ├── alembic/                           ← Database migrations
 │   │   ├── env.py
 │   │   ├── script.py.mako
 │   │   └── versions/
-│   │       └── 0001_initial_schema.py
+│   │       ├── 0001_initial_schema.py     ← Initial schema + B-tree indexes
+│   │       └── 0003_performance_indexes.py ← Phase 5: GIN trigram + anomaly unique constraint
 │   │
 │   ├── tests/                             ← Pytest test suite
 │   │   ├── conftest.py                    ← Fixtures (test DB, test client)
 │   │   ├── unit/
 │   │   │   ├── test_person_generator.py
+│   │   │   ├── test_event_generator.py
 │   │   │   ├── test_anomaly_service.py
-│   │   │   └── test_ethics_guard.py
+│   │   │   ├── test_ethics_guard.py
+│   │   │   ├── test_performance.py        ← Phase 5: feature matrix speed + dedup logic
+│   │   │   ├── test_redis_fallback.py     ← Phase 5: CacheHelper graceful degradation (7 tests)
+│   │   │   ├── test_indexes.py            ← Phase 5: static migration 0003 analysis (8 tests)
+│   │   │   └── test_timing_middleware.py  ← Phase 5: header, slow log, deque tests (6 tests)
 │   │   └── integration/
 │   │       ├── test_persons_api.py
 │   │       ├── test_graph_api.py
 │   │       └── test_auth_api.py
 │   │
-│   ├── Dockerfile                         ← Backend container image
+│   ├── .dockerignore                      ← Phase 5: Excludes tests/caches from prod image
+│   ├── Dockerfile                         ← Phase 5: Multi-stage (builder + slim runtime)
 │   ├── requirements.txt                   ← Pinned production dependencies
 │   ├── requirements-dev.txt               ← Dev + test dependencies
 │   └── alembic.ini
@@ -149,7 +157,8 @@ simsight/                                  ← project root
 │   │   ├── hooks/                         ← Custom React hooks
 │   │   │   ├── usePersons.ts
 │   │   │   ├── useGraph.ts
-│   │   │   └── useAnomalies.ts
+│   │   │   ├── useAnomalies.ts
+│   │   │   └── useDebounce.ts             ← Phase 5: 300ms debounce for search inputs
 │   │   │
 │   │   ├── store/                         ← Global state (Zustand)
 │   │   │   └── useAppStore.ts
@@ -163,7 +172,8 @@ simsight/                                  ← project root
 │   │   │
 │   │   └── utils/
 │   │       ├── formatDate.ts
-│   │       └── colorScale.ts             ← Anomaly score → colour mapping
+│   │       ├── colorScale.ts              ← Anomaly score → colour mapping
+│   │       └── perf.ts                    ← Phase 5: measureAsync/measureSync/markRender
 │   │
 │   ├── tests/                             ← Vitest + React Testing Library
 │   │   ├── EthicsBanner.test.tsx
@@ -175,14 +185,20 @@ simsight/                                  ← project root
 │   ├── tailwind.config.ts
 │   ├── tsconfig.json
 │   ├── package.json
-│   └── Dockerfile                        ← Frontend container (nginx)
+│   ├── .dockerignore                      ← Phase 5: Excludes node_modules/dist from build context
+│   ├── nginx.conf                         ← Phase 5: React Router fallback + static caching
+│   └── Dockerfile                         ← Phase 5: Multi-stage (Node build + nginx serve)
 │
 ├── docs/                                  ← All project documentation
-│   ├── ARCHITECTURE.md                    ← This system's design doc
-│   ├── HANDOFF.md                         ← Session-to-session handoff template
+│   ├── ARCHITECTURE.md                    ← System design doc
+│   ├── HANDOFF.md                         ← Phase-by-phase progress tracker
 │   ├── FOLDER_STRUCTURE.md                ← This file
 │   ├── GIT_BRANCH_STRATEGY.md
 │   ├── DEFINITION_OF_DONE.md
+│   ├── PHASE-2-EXPLANATION.md             ← Data generation deep dive
+│   ├── PHASE-3-EXPLANATION.md             ← Neo4j + anomaly detection
+│   ├── PHASE-4-EXPLANATION.md             ← Frontend architecture
+│   ├── PHASE-5-EXPLANATION.md             ← Phase 5: benchmarks, Redis keys, debugging guide
 │   └── diagrams/
 │       └── architecture.excalidraw        ← Visual diagram source
 │
