@@ -9,11 +9,12 @@ Phase 7: Deep /health + /ready endpoints, structured logging, docs disabled in p
 """
 
 import logging
+import traceback as tb
 from contextlib import asynccontextmanager
 from typing import Any
 
 import redis.asyncio as aioredis
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi import status as http_status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -77,6 +78,25 @@ app = FastAPI(
     redoc_url=_redoc_url,
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Catch-all exception handler — logs full traceback to stderr (visible in
+    Render / Railway logs) and returns a JSON 500 so the frontend gets a
+    structured error instead of uvicorn's plain-text 'Internal Server Error'.
+    """
+    logger.error(
+        "Unhandled exception on %s %s:\n%s",
+        request.method,
+        request.url.path,
+        tb.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
 
 # ── Middleware (order matters: outermost wraps innermost) ──────────────────────
 app.add_middleware(

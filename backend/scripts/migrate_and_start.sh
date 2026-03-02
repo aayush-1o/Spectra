@@ -21,7 +21,7 @@ echo "--- Starting Uvicorn ---"
 exec uvicorn app.main:app \
   --host 0.0.0.0 \
   --port "${PORT:-8000}" \
-  --workers 2 \
+  --workers 1 \
   --log-level "${LOG_LEVEL:-info}" \
   --no-access-log
 # --no-access-log: we have StructuredLoggingMiddleware handling access logs
