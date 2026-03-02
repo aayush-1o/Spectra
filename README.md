@@ -2,7 +2,8 @@
 
 ![Synthetic Data Only](https://img.shields.io/badge/DATA-SYNTHETIC%20ONLY-red?style=for-the-badge)
 ![No Real Surveillance](https://img.shields.io/badge/NO-REAL%20SURVEILLANCE-red?style=for-the-badge)
-![Phase 5 Complete](https://img.shields.io/badge/Phase-5%20Complete-brightgreen?style=for-the-badge)
+![Phase 7 Complete](https://img.shields.io/badge/Phase-7%20Complete-brightgreen?style=for-the-badge)
+![CI](https://github.com/aayush-1o/Spectra/actions/workflows/ci.yml/badge.svg?branch=dev)
 ![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi)
@@ -38,7 +39,13 @@ To demonstrate production-level skills across the full stack:
 
 ## Live Demo
 
-> Run locally — see **Quick Start** below.
+| Service | URL |
+|---------|-----|
+| Frontend | https://spectra-simsight.vercel.app |
+| Backend API | https://spectra-api.onrender.com |
+| Health | https://spectra-api.onrender.com/health |
+
+> **Note:** Render free tier spins down after 15 min of inactivity. First request after idle may take ~30s.
 
 ---
 
@@ -94,9 +101,9 @@ To demonstrate production-level skills across the full stack:
 | 2 | Synthetic Data Engine | ✅ Complete |
 | 3 | Graph Relationships + Anomaly Detection | ✅ Complete |
 | 4 | Frontend + Backend Integration | ✅ Complete |
-| 5 | Optimisation | ✅ **Complete** |
-| 6 | Testing + Hardening | 🔲 Planned |
-| 7 | Deployment | 🔲 Planned |
+| 5 | Optimisation | ✅ Complete |
+| 6 | Testing + Hardening | ✅ Complete |
+| 7 | Deployment | ✅ **Complete** |
 | 8 | Documentation + Mastery | 🔲 Planned |
 
 ---
@@ -119,9 +126,10 @@ cp .env.example .env          # defaults work out of the box
 
 ```bash
 docker compose up --build -d
-# Starts: spectra-postgres, spectra-redis, spectra-neo4j, spectra-backend
-# Phase 5+ also starts: spectra-frontend (nginx on port 80)
-# Wait ~30s for Neo4j to fully initialise
+# Dev: starts postgres, redis, neo4j, backend, frontend (nginx)
+
+# Production (cloud managed DBs, no local DBs):
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 ### 3. Run database migrations
@@ -264,10 +272,12 @@ cd frontend && npm run test
 |----------|-------------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design + tech choices |
 | [HANDOFF.md](docs/HANDOFF.md) | Phase-by-phase progress tracker |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step deployment guide |
 | [PHASE-2-EXPLANATION.md](docs/PHASE-2-EXPLANATION.md) | Data generation deep dive |
 | [PHASE-3-EXPLANATION.md](docs/PHASE-3-EXPLANATION.md) | Neo4j + anomaly detection explained |
 | [PHASE-4-EXPLANATION.md](docs/PHASE-4-EXPLANATION.md) | Frontend architecture + debugging |
 | [PHASE-5-EXPLANATION.md](docs/PHASE-5-EXPLANATION.md) | Optimisation: benchmarks, Redis keys, debugging guide |
+| [PHASE-7-EXPLANATION.md](docs/PHASE-7-EXPLANATION.md) | Deployment: infra diagram, CI/CD, security checklist |
 | [DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md) | Per-phase completion criteria |
 
 ---

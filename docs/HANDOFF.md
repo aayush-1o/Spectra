@@ -6,22 +6,22 @@
 
 ## Current Phase
 
-**Phase**: 5 — Optimisation ✅
+**Phase**: 7 — Deployment ✅
 
 ---
 
 ## Phase Status
 
 | Phase | Name | Status |
-|-------|------|--------|
+|-------|------|---------|
 | 0 | Architecture + Repo Setup | ✅ Complete |
 | 1 | Core Setup (DB, Auth, Data Gen skeleton) | ✅ Complete |
 | 2 | Synthetic Data Engine | ✅ Complete |
 | 3 | Graph Relationships + Anomaly Detection | ✅ Complete |
 | 4 | Frontend + Backend Integration | ✅ Complete |
 | 5 | Optimisation | ✅ Complete |
-| 6 | Testing + Hardening | 🔲 Not Started |
-| 7 | Deployment | 🔲 Not Started |
+| 6 | Testing + Hardening | ✅ Complete |
+| 7 | Deployment | ✅ **Complete** |
 | 8 | Documentation + Mastery | 🔲 Not Started |
 
 > Status key: 🔲 Not Started | 🔄 In Progress | ✅ Complete | 🚧 Blocked
@@ -88,10 +88,55 @@
 - [x] `backend/tests/unit/test_redis_fallback.py` — CacheHelper graceful degradation
 - [x] `backend/tests/unit/test_indexes.py` — static migration analysis
 - [x] `backend/tests/unit/test_timing_middleware.py` — header, log, deque tests
+### Phase 6 — Testing + Hardening
+- [x] Phase 6 (Testing + Hardening) — completed prior to Phase 7
+
+### Phase 7 — Deployment ✅
+- [x] `backend/app/config.py` — Phase 7 config flags: `LOG_LEVEL`, `DEBUG`, `ALLOW_DOCS`, `FRONTEND_URL`, `CORS_ORIGINS_OVERRIDE`, `validate_production()` startup guard
+- [x] `backend/app/main.py` — deep `/health` + `/ready` endpoints (ping all 3 services), `StructuredLoggingMiddleware`, `/docs` disabled in production, version 0.7.0
+- [x] `backend/app/db/postgres.py` — DATABASE_URL rewrite (`postgresql://` → `postgresql+asyncpg://`) for Render compatibility
+- [x] `backend/app/middleware/logging.py` — `StructuredLoggingMiddleware`: JSON in production, human-readable in dev, DEBUG for health probes, ERROR for 5xx
+- [x] `backend/scripts/migrate_and_start.sh` — runs `alembic upgrade head` then starts uvicorn (2 workers, respects `$PORT`)
+- [x] `backend/.env.production.example` — cloud-ready env var template (Render/Upstash/AuraDB formats)
+- [x] `.env.example` — updated with all Phase 7 vars + cloud format comments
+- [x] `.github/workflows/ci.yml` — CI on PR to dev/main: backend tests (Postgres + Redis service containers), frontend tests, ruff + eslint lint
+- [x] `.github/workflows/deploy.yml` — Deploy on push to main: pre-deploy tests, Render deploy hook, Vercel CLI prod deploy
+- [x] `render.yaml` — Render Blueprint: web service + managed Postgres, env vars, health check path, auto-deploy
+- [x] `vercel.json` — SPA rewrite rules, security headers, immutable asset caching
+- [x] `docker-compose.prod.yml` — production overrides: no local DBs, migrate-and-start command, ENVIRONMENT=production
+- [x] `docs/DEPLOYMENT.md` — step-by-step guide: AuraDB, Upstash, Render, Vercel, GitHub Actions secrets, migration, JWT rotation, log inspection, rollback
+- [x] `docs/PHASE-7-EXPLANATION.md` — infra architecture diagram, platform choices, env separation, CI/CD flow, health/ready explanation, JSON log format, security checklist, production risks, rollback strategy
 
 ---
 
-## Known Bugs / Gotchas
+## Deployment URLs (update once live)
+
+| Service | URL |
+|---------|-----|
+| Backend API | https://spectra-api.onrender.com |
+| Frontend | https://spectra-simsight.vercel.app |
+| Health | https://spectra-api.onrender.com/health |
+| Ready | https://spectra-api.onrender.com/ready |
+
+## Production Services
+
+| Service | Platform | Notes |
+|---------|----------|-------|
+| Backend | Render (free) | Docker deploy, auto-migrate on start |
+| Frontend | Vercel (free) | CDN + HTTPS |
+| PostgreSQL | Render Postgres (free) | 1GB, 90-day expiry on free tier |
+| Redis | Upstash (free) | 10k cmd/day, TLS (`rediss://`) |
+| Neo4j | AuraDB Free | 200MB, always-on |
+
+## GitHub Actions Secrets Required
+
+| Secret | Used By |
+|--------|---------|
+| `RENDER_DEPLOY_HOOK_URL` | `deploy.yml` — triggers Render re-deploy |
+| `VERCEL_TOKEN` | `deploy.yml` — authenticates Vercel CLI |
+| `VERCEL_ORG_ID` | `deploy.yml` — Vercel project org |
+| `VERCEL_PROJECT_ID` | `deploy.yml` — Vercel project ID |
+
 
 | # | Description | Area | Severity |
 |---|-------------|------|----------|

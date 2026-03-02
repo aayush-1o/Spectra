@@ -1,0 +1,44 @@
+# Spectra — Production Docker Compose Overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Changes from dev compose:
+#   - No live-reload (no ./backend:/app volume mount)
+#   - 2 Uvicorn workers instead of 1
+#   - ENVIRONMENT=production
+#   - No local Postgres/Redis/Neo4j — assumes external managed services
+#   - Backend reads from environment variables set in the shell or .env.production
+#   - Frontend nginx serves the compiled React app
+
+services:
+  # ── Disable local databases (use managed cloud services in production) ────────
+  spectra-postgres:
+    deploy:
+      replicas: 0
+
+  spectra-redis:
+    deploy:
+      replicas: 0
+
+  spectra-neo4j:
+    deploy:
+      replicas: 0
+
+  # ── Backend production overrides ─────────────────────────────────────────────
+  spectra-backend:
+    # Remove dev volume mount (no hot-reload in production)
+    volumes: []
+    # Run migrations then start with 2 workers
+    command: sh scripts/migrate_and_start.sh
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      ALLOW_DOCS: "false"
+      LOG_LEVEL: INFO
+      # These MUST be set in the shell environment or a .env file:
+      # DATABASE_URL, REDIS_URL, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD,
+      # JWT_SECRET_KEY, FRONTEND_URL
+    restart: unless-stopped
+
+  # ── Frontend nginx (production build) ────────────────────────────────────────
+  spectra-frontend:
+    restart: unless-stopped

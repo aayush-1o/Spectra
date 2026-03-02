@@ -1,0 +1,74 @@
+# Spectra — Render Blueprint
+# Defines the backend web service, Postgres database, and environment variables.
+# Render reads this file automatically when you connect the repo.
+#
+# https://render.com/docs/blueprint-spec
+#
+# Usage:
+#   1. Go to render.com → New → Blueprint
+#   2. Connect your GitHub repo
+#   3. Render will read this file and create all services
+#   4. Add SECRET environment variables manually in dashboard:
+#      - JWT_SECRET_KEY  (generate: python -c "import secrets; print(secrets.token_hex(32))")
+#      - NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD  (from Neo4j AuraDB)
+#      - REDIS_URL  (from Upstash)
+#      - FRONTEND_URL  (your Vercel URL, e.g. https://spectra.vercel.app)
+
+services:
+  # ── Backend Web Service ──────────────────────────────────────────────────────
+  - type: web
+    name: spectra-api
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free         # Render free tier (spins down after 15 min inactivity)
+    healthCheckPath: /health
+    autoDeploy: true   # re-deploy on every push to the connected branch
+
+    # Start command: run migrations first, then start the server
+    # This ensures Alembic has applied the latest schema before any request hits
+    startCommand: |
+      sh scripts/migrate_and_start.sh
+
+    envVars:
+      # ── Injected from Render Postgres (see databases section) ────────────────
+      - key: DATABASE_URL
+        fromDatabase:
+          name: spectra-postgres
+          property: connectionString
+        # Render gives a psycopg2 URL — we rewrite it for asyncpg at runtime
+
+      # ── Set by you in Render dashboard ───────────────────────────────────────
+      - key: JWT_SECRET_KEY
+        sync: false   # must be set manually (secret)
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_USERNAME
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # ── Fixed production values ───────────────────────────────────────────────
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DEBUG
+        value: "false"
+      - key: ALLOW_DOCS
+        value: "false"
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRE_MINUTES
+        value: "60"
+
+  # ── Managed PostgreSQL ────────────────────────────────────────────────────────
+databases:
+  - name: spectra-postgres
+    plan: free         # 1GB storage, 97 days expiry on free tier
+    databaseName: spectra
+    user: spectra
