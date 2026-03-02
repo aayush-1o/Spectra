@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* ── Spectra Global Styles ─────────────────────────────────────────────────── */
+
+:root {
+  --ethics-banner-height: 52px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #0a0f1e;
+  color: #e2e8f0;
+}
+
+/* Offset content below the fixed ethics banner */
+.page-content {
+  padding-top: var(--ethics-banner-height);
+}

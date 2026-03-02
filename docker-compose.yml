@@ -1,0 +1,54 @@
+services:
+  spectra-postgres:
+    image: postgres:15-alpine
+    container_name: spectra-postgres
+    environment:
+      POSTGRES_DB: spectra
+      POSTGRES_USER: spectra
+      POSTGRES_PASSWORD: spectra
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spectra -d spectra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  spectra-redis:
+    image: redis:7-alpine
+    container_name: spectra-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  spectra-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: spectra-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://spectra:spectra@spectra-postgres:5432/spectra
+      REDIS_URL: redis://spectra-redis:6379
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_IN_PRODUCTION}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      spectra-postgres:
+        condition: service_healthy
+      spectra-redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
