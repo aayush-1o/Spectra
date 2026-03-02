@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-**Phase**: 3 — Graph Relationships + Anomaly Detection
+**Phase**: 5 — Optimisation ✅
 
 ---
 
@@ -19,7 +19,7 @@
 | 2 | Synthetic Data Engine | ✅ Complete |
 | 3 | Graph Relationships + Anomaly Detection | ✅ Complete |
 | 4 | Frontend + Backend Integration | ✅ Complete |
-| 5 | Optimisation | 🔲 Not Started |
+| 5 | Optimisation | ✅ Complete |
 | 6 | Testing + Hardening | 🔲 Not Started |
 | 7 | Deployment | 🔲 Not Started |
 | 8 | Documentation + Mastery | 🔲 Not Started |
@@ -49,32 +49,45 @@
 - [x] `backend/tests/unit/` — test_person_generator, test_event_generator (18 tests pass)
 
 ### Phase 3 — Graph + Anomaly Detection
-- [x] `docker-compose.yml` — added `spectra-neo4j` (neo4j:5), neo4j env vars in backend, healthcheck, neo4j_data volume
-- [x] `backend/requirements.txt` — added `neo4j==5.27.0`
-- [x] `backend/app/db/neo4j.py` — async driver singleton, `get_neo4j_driver()`, `close_neo4j_driver()`, `get_neo4j_session()` FastAPI dep
-- [x] `backend/app/data_gen/graph_builder.py` — reads Postgres → writes CONTACTED/TRANSACTED/VISITED edges to Neo4j via MERGE
-- [x] `backend/app/services/graph_service.py` — `GraphService`: neighbourhood, centrality, shortest_path
-- [x] `backend/app/services/anomaly_service.py` — IsolationForest + z-score + Redis cache (5 min TTL)
-- [x] `backend/app/schemas/graph.py` — GraphNode, GraphEdge, NeighbourhoodResponse, CentralityEntry, PathResponse
-- [x] `backend/app/schemas/anomaly.py` — AnomalyResponse, DetectionResult
-- [x] `backend/app/api/v1/graph.py` — neighbourhood, centrality, shortest-path endpoints
-- [x] `backend/app/api/v1/anomalies.py` — list anomalies, get by id, run-detection
-- [x] `backend/app/main.py` — lifespan context + 2 new routers wired
-- [x] `backend/app/config.py` — neo4j_password default updated to `spectra123`
-- [x] `backend/tests/unit/test_anomaly_service.py` — 4 unit tests
-- [x] `backend/tests/integration/test_graph_api.py` — 4 integration tests (auth enforcement)
+- [x] `docker-compose.yml` — added `spectra-neo4j` (neo4j:5)
+- [x] `backend/app/db/neo4j.py` — async driver singleton
+- [x] `backend/app/data_gen/graph_builder.py` — Postgres → Neo4j graph
+- [x] `backend/app/services/graph_service.py` — neighbourhood, centrality, shortest_path
+- [x] `backend/app/services/anomaly_service.py` — IsolationForest + z-score
+- [x] `backend/app/api/v1/graph.py`, `anomalies.py`
+- [x] `backend/tests/unit/test_anomaly_service.py`, `tests/integration/test_graph_api.py`
 
----
+### Phase 4 — Frontend + Backend Integration
+- [x] React 18 + Vite SPA with 8 pages (Dashboard, Map, Graph, Anomalies, Search, Login, Register, About)
+- [x] Axios API client with JWT interceptors
+- [x] Protected/public route guards
+- [x] Cytoscape.js graph viewer, Leaflet.js map
+- [x] `frontend/src/tests/` — component + page tests with Vitest
 
-## What Is Pending
-
-### Phase 4 Deliverables — Frontend + Backend Integration
-- [ ] Dashboard page wired to real API data (persons, events counts)
-- [ ] Graph visualisation component (D3.js or Sigma.js) using `/api/v1/graph/neighbourhood`
-- [ ] Anomaly list component using `/api/v1/anomalies`
-- [ ] Authentication flow: login/register UI connected to `/api/v1/auth`
-- [ ] Pagination controls on persons/events/anomalies tables
-- [ ] Vite proxy already configured for `/api` → `http://localhost:8000`
+### Phase 5 — Optimisation ✅
+- [x] `backend/alembic/versions/0003_performance_indexes.py` — GIN trigram index + anomaly unique constraint
+- [x] `backend/app/services/anomaly_service.py` — full deduplication + `get_anomaly_count()`
+- [x] `backend/app/db/neo4j.py` — `ensure_neo4j_indexes()` called on startup
+- [x] `backend/app/db/redis.py` — shared connection pool (20 conns) + `CacheHelper` with hit/miss stats
+- [x] `backend/app/middleware/timing.py` — `TimingMiddleware` (slow log, rolling avg, `X-Response-Time-Ms`)
+- [x] `backend/app/api/v1/admin.py` — `GET /api/v1/admin/metrics` endpoint
+- [x] `backend/app/api/v1/graph.py` — neighbourhood Redis cache (TTL 120s)
+- [x] `backend/app/api/v1/anomalies.py` — uses shared Redis pool
+- [x] `backend/app/main.py` — lifespan wires all new components, middleware order fixed
+- [x] `backend/Dockerfile` — multi-stage (builder + slim runtime)
+- [x] `backend/.dockerignore` — excludes tests, caches, migrations from image
+- [x] `frontend/Dockerfile` — multi-stage (Node build + nginx:alpine serve)
+- [x] `frontend/nginx.conf` — React Router fallback + static asset caching + API proxy
+- [x] `frontend/.dockerignore` — excludes node_modules/dist
+- [x] `docker-compose.yml` — `spectra-frontend` service, Redis persistence volume
+- [x] `frontend/src/App.tsx` — lazy-loaded heavy pages via React.lazy + Suspense
+- [x] `frontend/src/hooks/useDebounce.ts` — 300ms debounce for search inputs
+- [x] `frontend/src/utils/perf.ts` — `measureAsync` / `measureSync` / `markRender`
+- [x] `backend/requirements.txt` — added `pytest-benchmark==4.0.0`
+- [x] `backend/tests/unit/test_performance.py` — feature matrix speed + dedup logic
+- [x] `backend/tests/unit/test_redis_fallback.py` — CacheHelper graceful degradation
+- [x] `backend/tests/unit/test_indexes.py` — static migration analysis
+- [x] `backend/tests/unit/test_timing_middleware.py` — header, log, deque tests
 
 ---
 
@@ -85,58 +98,63 @@
 | 1 | Neo4j healthcheck uses `wget` — image must have it (neo4j:5 does) | docker-compose | Low |
 | 2 | `get_async_session()` is an async generator; `graph_builder.py` uses `async for … break` pattern | graph_builder | Low |
 | 3 | IDE shows "Cannot find import" for all packages — Pyre2 doesn't see Docker's site-packages | All files | Info |
-| 4 | `run_detection` does not deduplicate across multiple runs (same event can be flagged again) | anomaly_service | Medium |
-
-### Phase 3 Design Decisions
-- **Async Neo4j driver** (`AsyncGraphDatabase`) used throughout — no sync blocking calls
-- **MERGE** (not CREATE) in graph_builder — idempotent, safe to re-run
-- **IsolationForest** uses `contamination=0.05` (flags ~5% of events as anomalies)
-- **Z-score threshold** of 2.5σ for high-value transfer detection
-- **Redis caching**: 5-minute TTL on `anomaly:last_run` key — repeated API calls return cached summary
-- **`AnomalyRecord` model** uses `description` + `anomaly_type` fields (not `reason` as in architecture doc)
+| 4 | `CONCURRENTLY` in migration 0003 requires no active DB transaction — Alembic runs each migration in its own transaction so this is safe | migration | Low |
+| 5 | TimingMiddleware rolling deque is in-process memory — resets on container restart | timing.py | Low |
+| 6 | Frontend `spectra-frontend` Docker service is production-only (nginx); local dev still uses `npm run dev` on port 5173 | frontend | Info |
 
 ---
 
-## How To Run Phase 3
+## Phase 5 Design Decisions
+
+- **Middleware order**: CORS (outermost) → TimingMiddleware → EthicsGuard (innermost). CORS is outermost so preflight OPTIONS skip timing and ethics checks.
+- **GIN trigram**: Enables `ILIKE '%term%'` without a sequential scan. Requires `pg_trgm` extension.
+- **Dedup strategy**: DB-level unique index + in-service pre-check. The pre-check avoids constraint errors on concurrent runs; the index is the definitive guard.
+- **Redis pool size**: 20 connections — generous for <100 concurrent users, conservative for free-tier Redis.
+- **Lazy loading strategy**: Auth pages (Login, Register) stay eager — they're tiny and always the first screen. Everything else is split.
+
+---
+
+## How To Run Phase 5
 
 ```bash
-# 1. Full rebuild (includes Neo4j)
+# 1. Full rebuild (picks up multi-stage Dockerfile changes)
 docker compose up --build -d
 
-# 2. Run migrations
+# 2. Run all migrations (including Phase 5 performance indexes)
 docker exec spectra-backend alembic upgrade head
 
-# 3. Seed synthetic data (if not already done)
-docker exec spectra-backend python -m app.data_gen.run --persons 200 --events 800
+# 3. Verify Phase 5 tests pass
+docker exec spectra-backend pytest tests/unit/test_performance.py \
+  tests/unit/test_redis_fallback.py \
+  tests/unit/test_indexes.py \
+  tests/unit/test_timing_middleware.py -v
 
-# 4. Build graph layer in Neo4j
-docker exec spectra-backend python -m app.data_gen.graph_builder
+# 4. Run full test suite
+docker exec spectra-backend pytest tests/ -v
 
-# 5. Get a token
+# 5. Test metrics endpoint
 TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"demo2","password":"demo1234"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-# 6. Get a person ID
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/admin/metrics | python3 -m json.tool
+
+# 6. Verify X-Response-Time-Ms header present
+curl -I -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/persons
+
+# 7. Test graph caching (2nd call should be faster)
 PERSON_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
   "http://localhost:8000/api/v1/persons?limit=1" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
+time curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/graph/neighbourhood/$PERSON_ID?hops=2" > /dev/null
+time curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/graph/neighbourhood/$PERSON_ID?hops=2" > /dev/null
 
-# 7. Query the graph
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/graph/neighbourhood/$PERSON_ID?hops=2"
-
-# 8. Run anomaly detection
-curl -s -X POST -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/api/v1/anomalies/run-detection
-
-# 9. List anomalies
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/anomalies?limit=5"
-
-# 10. Run all tests
-docker exec spectra-backend pytest tests/unit/ tests/integration/ -v
+# 8. Test anomaly deduplication (2nd run returns flagged=0)
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/anomalies/run-detection
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/anomalies/run-detection
 ```
 
 ---

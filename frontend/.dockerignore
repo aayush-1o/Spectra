@@ -1,0 +1,15 @@
+# Spectra Frontend — Docker ignore
+# Prevents node_modules and build artifacts from being sent to Docker daemon.
+# This dramatically speeds up the build context transfer.
+
+node_modules/
+dist/
+.git/
+.gitignore
+*.md
+*.log
+.DS_Store
+.vscode/
+.idea/
+coverage/
+.nyc_output/

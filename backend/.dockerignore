@@ -1,0 +1,49 @@
+# Spectra Backend — Docker ignore
+# Excludes files that must not be shipped into the production image.
+# Keep this list up-to-date as new dev-only files are added.
+
+# Python runtime artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Test infrastructure (never in production image)
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+pytest.ini
+setup.cfg
+
+# Alembic migration files (applied separately via `alembic upgrade head`)
+# Comment this out if you want to run migrations inside the container on start
+alembic/
+
+# Development tooling
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Documentation
+*.md
+docs/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore

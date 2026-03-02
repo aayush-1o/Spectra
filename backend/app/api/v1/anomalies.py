@@ -1,6 +1,8 @@
 """
 Spectra — Anomalies API (v1)
 Run and retrieve anomaly detection results.
+
+Phase 5: Uses shared Redis pool (get_redis) instead of per-request connections.
 """
 
 import redis.asyncio as aioredis
@@ -9,23 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db
+from app.db.redis import get_redis
 from app.models.anomaly import AnomalyRecord
 from app.models.user import User
 from app.schemas.anomaly import AnomalyResponse, DetectionResult
 from app.services import anomaly_service
-from app.config import settings
 
 router = APIRouter()
 _MAX_LIMIT = 100
-
-
-async def _get_redis():
-    """Yield a Redis async client for use as a FastAPI dependency."""
-    client = aioredis.from_url(settings.redis_url, decode_responses=True)
-    try:
-        yield client
-    finally:
-        await client.aclose()
 
 
 @router.get("", response_model=list[AnomalyResponse])
@@ -61,12 +54,13 @@ async def get_anomaly(
 @router.post("/run-detection", response_model=DetectionResult)
 async def run_detection(
     db: AsyncSession = Depends(get_db),
-    redis_client=Depends(_get_redis),
+    redis_client: aioredis.Redis = Depends(get_redis),
     _current_user: User = Depends(get_current_user),
 ) -> DetectionResult:
     """
     Trigger anomaly detection (IsolationForest + z-score).
     Results are cached in Redis for 5 minutes. Requires Bearer JWT.
+    Phase 5: uses shared Redis pool, deduplication enabled.
     """
     result = await anomaly_service.run_detection(db, redis_client)
     return DetectionResult(**result)

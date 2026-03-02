@@ -1,14 +1,20 @@
 """
 Spectra — Neo4j Async Driver Singleton
 Provides a shared AsyncDriver instance and a FastAPI-compatible session dependency.
+
+Phase 5 addition: ensure_neo4j_indexes() creates B-tree indexes on Person.id and
+Location.id at application startup, improving all neighbourhood/shortest-path lookups.
 """
 
+import logging
 from typing import AsyncGenerator
 
 import neo4j
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Module-level driver — created once, reused across all requests.
 _driver: AsyncDriver | None = None
@@ -43,3 +49,26 @@ async def get_neo4j_session() -> AsyncGenerator[neo4j.AsyncSession, None]:
     driver = get_neo4j_driver()
     async with driver.session(database="neo4j") as session:
         yield session
+
+
+async def ensure_neo4j_indexes(driver: AsyncDriver) -> None:
+    """
+    Create Neo4j range indexes on Person.id and Location.id if they don't already
+    exist.  These are the primary lookup keys for all neighbourhood and centrality
+    queries — without them Neo4j does a full node-label scan on every request.
+
+    Called once from main.py lifespan() on startup.  Failures are logged as
+    warnings and do NOT prevent the application from starting.
+    """
+    index_statements = [
+        "CREATE INDEX person_id IF NOT EXISTS FOR (p:Person) ON (p.id)",
+        "CREATE INDEX location_id IF NOT EXISTS FOR (l:Location) ON (l.id)",
+    ]
+    try:
+        async with driver.session(database="neo4j") as session:
+            for stmt in index_statements:
+                await session.run(stmt)
+        logger.info("Neo4j indexes ensured: Person(id), Location(id)")
+    except Exception as exc:
+        # Neo4j may not yet be seeded — non-fatal at startup
+        logger.warning("Could not create Neo4j indexes (non-fatal): %s", exc)
