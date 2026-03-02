@@ -27,6 +27,7 @@ redis==5.2.1
 faker==33.1.0
 numpy==2.2.1
 networkx==3.4.2
+neo4j==5.27.0
 
 # ── Machine Learning / Anomaly Detection (Phase 3) ────────────────────────────
 scikit-learn==1.6.0

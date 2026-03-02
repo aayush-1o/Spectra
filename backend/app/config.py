@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # ── Neo4j (Phase 3 — not used yet) ────────────────────────────────────────
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_username: str = "neo4j"
-    neo4j_password: str = "changeme"
+    neo4j_password: str = "spectra123"
 
     # ── Redis ──────────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379"

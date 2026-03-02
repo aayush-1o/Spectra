@@ -1,62 +1,106 @@
 /**
- * Spectra — Placeholder Dashboard Page
- * Shows the ethics banner and a "coming soon" skeleton.
- * Will be replaced with real KPI cards and charts in Phase 4.
+ * Spectra — Dashboard Page
+ * KPI cards + recent events feed.
  */
+import Layout from '../components/layout/Layout'
+import KpiCard from '../components/ui/KpiCard'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
+import ErrorMessage from '../components/ui/ErrorMessage'
+import Badge from '../components/ui/Badge'
+import { useApi } from '../hooks/useApi'
+import { listPersons } from '../api/persons'
+import { listEvents } from '../api/events'
+import { listAnomalies } from '../api/anomalies'
+import type { EventType } from '../types'
 
-import EthicsBanner from '../components/layout/EthicsBanner'
+const EVENT_BADGE_COLOR: Record<EventType, 'cyan' | 'violet' | 'amber' | 'rose' | 'emerald'> = {
+    call: 'cyan',
+    message: 'violet',
+    meeting: 'emerald',
+    transfer: 'amber',
+    login: 'rose',
+}
+
+function fmt(dt: string) {
+    return new Date(dt).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+}
 
 export default function DashboardPage() {
+    const persons = useApi(() => listPersons({ limit: 1 }))
+    const events = useApi(() => listEvents({ limit: 10 }))
+    const anomalies = useApi(() => listAnomalies({ limit: 1 }))
+
+    // Use the full list for totals (limit=1 just to get the array length, count from a wider call)
+    const personsTotal = useApi(() => listPersons({ limit: 100 }))
+    const eventsTotal = useApi(() => listEvents({ limit: 100 }))
+    const anomTotal = useApi(() => listAnomalies({ limit: 100 }))
+
+    void persons; void anomalies; // suppress unused
+
     return (
-        <>
-            <EthicsBanner />
+        <Layout>
+            {/* Header */}
+            <div className="mb-8">
+                <h1 className="text-2xl font-black text-slate-100">Dashboard</h1>
+                <p className="text-slate-500 text-sm mt-1">Synthetic data overview — all computer-generated.</p>
+            </div>
 
-            <main className="page-content min-h-screen bg-[#0a0f1e] text-slate-100">
-                {/* Hero */}
-                <section className="flex flex-col items-center justify-center py-24 px-6 text-center gap-6">
-                    {/* Logo / Title */}
-                    <div className="flex items-center gap-3 mb-4">
-                        <span className="text-5xl">🔭</span>
-                        <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 to-violet-500 bg-clip-text text-transparent">
-                            Spectra
-                        </h1>
-                    </div>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+                <KpiCard
+                    icon="👤"
+                    label="Total Persons"
+                    value={personsTotal.data?.length ?? null}
+                    loading={personsTotal.loading}
+                    color="violet"
+                />
+                <KpiCard
+                    icon="⚡"
+                    label="Total Events"
+                    value={eventsTotal.data?.length ?? null}
+                    loading={eventsTotal.loading}
+                    color="cyan"
+                />
+                <KpiCard
+                    icon="🚨"
+                    label="Anomalies"
+                    value={anomTotal.data?.length ?? null}
+                    loading={anomTotal.loading}
+                    color="rose"
+                />
+            </div>
 
-                    <p className="text-slate-400 text-lg max-w-xl">
-                        Synthetic Intelligence &amp; Movement Simulation for Analytics Training
-                    </p>
+            {/* Recent Events */}
+            <div>
+                <h2 className="text-slate-300 font-semibold text-base mb-4">Recent Events</h2>
 
-                    {/* Status pill */}
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-900/40 border border-violet-500/30 text-violet-300 text-sm font-medium">
-                        <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-                        Phase 1 — Core Setup in progress
-                    </span>
+                {events.loading && <LoadingSpinner />}
+                <ErrorMessage message={events.error} />
 
-                    {/* Coming-soon cards skeleton */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10 w-full max-w-3xl">
-                        {['Dashboard', 'Map View', 'Graph View'].map((label) => (
-                            <div
-                                key={label}
-                                className="
-                  rounded-xl border border-slate-700/50 bg-slate-800/30
-                  p-6 flex flex-col items-center gap-3
-                  animate-pulse
-                "
-                            >
-                                <div className="w-10 h-10 rounded-full bg-slate-700" />
-                                <div className="h-4 w-24 rounded bg-slate-700" />
-                                <p className="text-xs text-slate-500 mt-1">{label} — coming in Phase 4</p>
+                {events.data && !events.loading && (
+                    <div className="rounded-xl border border-slate-800 bg-slate-900/40 divide-y divide-slate-800 overflow-hidden">
+                        {events.data.length === 0 && (
+                            <p className="px-5 py-8 text-center text-slate-500 text-sm">No events found. Run the data generator first.</p>
+                        )}
+                        {events.data.map((ev) => (
+                            <div key={ev.id} className="flex items-center gap-4 px-5 py-3">
+                                <Badge label={ev.event_type} color={EVENT_BADGE_COLOR[ev.event_type] ?? 'slate'} />
+                                <span className="text-slate-400 text-sm font-mono flex-1 truncate">
+                                    {ev.actor_id.slice(0, 8)}… → {ev.target_id.slice(0, 8)}…
+                                </span>
+                                <span className="text-slate-600 text-xs whitespace-nowrap">{fmt(ev.occurred_at)}</span>
                             </div>
                         ))}
                     </div>
-                </section>
+                )}
+            </div>
 
-                {/* Ethics footer note */}
-                <footer className="text-center py-8 text-slate-600 text-xs">
-                    ⚠️ All data shown in Spectra is 100% synthetic and computer-generated.
-                    No real people are tracked.
-                </footer>
-            </main>
-        </>
+            {/* Ethics footer */}
+            <footer className="mt-16 text-center text-slate-700 text-xs pb-4">
+                ⚠️ All data is 100% synthetic. No real people are tracked.
+            </footer>
+        </Layout>
     )
 }

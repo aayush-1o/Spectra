@@ -1,14 +1,12 @@
 # SimSight — Session Handoff Document
 
-> Fill this out at the end of every work session so the next session (or next AI) can
-> pick up exactly where you left off.
+> Fill this out at the end of every work session so the next session can pick up exactly where you left off.
 
 ---
 
 ## Current Phase
 
-<!-- Replace with the active phase number and name -->
-**Phase**: 0 — Architecture + Repo Setup
+**Phase**: 3 — Graph Relationships + Anomaly Detection
 
 ---
 
@@ -17,10 +15,10 @@
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Architecture + Repo Setup | ✅ Complete |
-| 1 | Core Setup (DB, Auth, Data Gen skeleton) | 🔲 Not Started |
-| 2 | Synthetic Data Engine | 🔲 Not Started |
-| 3 | Graph Relationships + Anomaly Detection | 🔲 Not Started |
-| 4 | Frontend + Backend Integration | 🔲 Not Started |
+| 1 | Core Setup (DB, Auth, Data Gen skeleton) | ✅ Complete |
+| 2 | Synthetic Data Engine | ✅ Complete |
+| 3 | Graph Relationships + Anomaly Detection | ✅ Complete |
+| 4 | Frontend + Backend Integration | ✅ Complete |
 | 5 | Optimisation | 🔲 Not Started |
 | 6 | Testing + Hardening | 🔲 Not Started |
 | 7 | Deployment | 🔲 Not Started |
@@ -30,150 +28,117 @@
 
 ---
 
-## What Has Been Built So Far
+## What Has Been Built
 
-<!-- Update this list as features are completed -->
-- [x] ARCHITECTURE.md — full system design, tech stack, data model, API list
-- [x] HANDOFF.md — this file
-- [x] FOLDER_STRUCTURE.md — proposed directory layout
-- [x] GIT_BRANCH_STRATEGY.md — branching model
-- [x] DEFINITION_OF_DONE.md — per-phase completion criteria
-- [ ] Git repo initialised
-- [ ] Docker Compose file created
-- [ ] PostgreSQL schema + Alembic migrations
-- [ ] FastAPI skeleton with health check
-- [ ] React + Vite scaffold
+### Phase 0 — Architecture
+- [x] `docs/ARCHITECTURE.md`, `docs/FOLDER_STRUCTURE.md`, `docs/GIT_BRANCH_STRATEGY.md`, `docs/DEFINITION_OF_DONE.md`
+
+### Phase 1 — Core Infrastructure
+- [x] `docker-compose.yml` — postgres + redis + backend
+- [x] `backend/app/main.py` — FastAPI with middleware
+- [x] `backend/app/models/` — Person, Location, Event, AnomalyRecord, User
+- [x] `backend/app/services/auth_service.py` — JWT + bcrypt
+- [x] `backend/app/api/v1/auth.py`, `deps.py`
+- [x] `backend/app/middleware/ethics_guard.py`
+- [x] `backend/alembic/versions/0001_initial_schema.py`
+
+### Phase 2 — Synthetic Data Engine
+- [x] `backend/app/data_gen/` — person_generator, location_generator, event_generator, run.py, constants.py
+- [x] `backend/app/schemas/` — PersonResponse, LocationResponse, EventResponse
+- [x] `backend/app/api/v1/` — persons.py, locations.py, events.py
+- [x] `backend/tests/unit/` — test_person_generator, test_event_generator (18 tests pass)
+
+### Phase 3 — Graph + Anomaly Detection
+- [x] `docker-compose.yml` — added `spectra-neo4j` (neo4j:5), neo4j env vars in backend, healthcheck, neo4j_data volume
+- [x] `backend/requirements.txt` — added `neo4j==5.27.0`
+- [x] `backend/app/db/neo4j.py` — async driver singleton, `get_neo4j_driver()`, `close_neo4j_driver()`, `get_neo4j_session()` FastAPI dep
+- [x] `backend/app/data_gen/graph_builder.py` — reads Postgres → writes CONTACTED/TRANSACTED/VISITED edges to Neo4j via MERGE
+- [x] `backend/app/services/graph_service.py` — `GraphService`: neighbourhood, centrality, shortest_path
+- [x] `backend/app/services/anomaly_service.py` — IsolationForest + z-score + Redis cache (5 min TTL)
+- [x] `backend/app/schemas/graph.py` — GraphNode, GraphEdge, NeighbourhoodResponse, CentralityEntry, PathResponse
+- [x] `backend/app/schemas/anomaly.py` — AnomalyResponse, DetectionResult
+- [x] `backend/app/api/v1/graph.py` — neighbourhood, centrality, shortest-path endpoints
+- [x] `backend/app/api/v1/anomalies.py` — list anomalies, get by id, run-detection
+- [x] `backend/app/main.py` — lifespan context + 2 new routers wired
+- [x] `backend/app/config.py` — neo4j_password default updated to `spectra123`
+- [x] `backend/tests/unit/test_anomaly_service.py` — 4 unit tests
+- [x] `backend/tests/integration/test_graph_api.py` — 4 integration tests (auth enforcement)
 
 ---
 
 ## What Is Pending
 
-<!-- Paste the next phase's deliverables here -->
-### Phase 1 Deliverables
-- [ ] `docker-compose.yml` with postgres + redis + backend services
-- [ ] FastAPI project scaffold (`backend/`)
-- [ ] SQLAlchemy models for Person, Location, Event, AnomalyRecord
-- [ ] Alembic migration: initial schema
-- [ ] Vite + React scaffold (`frontend/`)
-- [ ] JWT auth: `/register`, `/login`, `/me` endpoints
-- [ ] `.env.example` with all required variables
-- [ ] README with local setup instructions
+### Phase 4 Deliverables — Frontend + Backend Integration
+- [ ] Dashboard page wired to real API data (persons, events counts)
+- [ ] Graph visualisation component (D3.js or Sigma.js) using `/api/v1/graph/neighbourhood`
+- [ ] Anomaly list component using `/api/v1/anomalies`
+- [ ] Authentication flow: login/register UI connected to `/api/v1/auth`
+- [ ] Pagination controls on persons/events/anomalies tables
+- [ ] Vite proxy already configured for `/api` → `http://localhost:8000`
 
 ---
 
-## Known Bugs
+## Known Bugs / Gotchas
 
-| # | Description | File / Area | Severity | Status |
-|---|-------------|-------------|----------|--------|
-| — | None yet | — | — | — |
+| # | Description | Area | Severity |
+|---|-------------|------|----------|
+| 1 | Neo4j healthcheck uses `wget` — image must have it (neo4j:5 does) | docker-compose | Low |
+| 2 | `get_async_session()` is an async generator; `graph_builder.py` uses `async for … break` pattern | graph_builder | Low |
+| 3 | IDE shows "Cannot find import" for all packages — Pyre2 doesn't see Docker's site-packages | All files | Info |
+| 4 | `run_detection` does not deduplicate across multiple runs (same event can be flagged again) | anomaly_service | Medium |
 
----
-
-## Environment Variables Added So Far
-
-```env
-# === Backend ===
-DATABASE_URL=postgresql+asyncpg://simsight:simsight@localhost:5432/simsight
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=changeme
-REDIS_URL=redis://localhost:6379
-JWT_SECRET_KEY=CHANGE_ME_IN_PRODUCTION
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=60
-ENVIRONMENT=development  # development | production
-
-# === Frontend (Vite) ===
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-> ⚠️ Never commit actual secrets. Copy `.env.example` to `.env` and fill in real values locally.
+### Phase 3 Design Decisions
+- **Async Neo4j driver** (`AsyncGraphDatabase`) used throughout — no sync blocking calls
+- **MERGE** (not CREATE) in graph_builder — idempotent, safe to re-run
+- **IsolationForest** uses `contamination=0.05` (flags ~5% of events as anomalies)
+- **Z-score threshold** of 2.5σ for high-value transfer detection
+- **Redis caching**: 5-minute TTL on `anomaly:last_run` key — repeated API calls return cached summary
+- **`AnomalyRecord` model** uses `description` + `anomaly_type` fields (not `reason` as in architecture doc)
 
 ---
 
-## How To Run Locally
+## How To Run Phase 3
 
-> Complete these steps in order every time you start a new session.
-
-### Prerequisites
-- Docker Desktop installed and running
-- Node.js 20+ and npm installed
-- Python 3.11+ installed (for running scripts outside Docker)
-- Git configured
-
-### Steps
-
-**1. Clone the repo**
 ```bash
-git clone https://github.com/<your-username>/simsight.git
-cd simsight
-```
+# 1. Full rebuild (includes Neo4j)
+docker compose up --build -d
 
-**2. Copy environment variables**
-```bash
-cp .env.example .env
-# Edit .env with any local overrides
-```
+# 2. Run migrations
+docker exec spectra-backend alembic upgrade head
 
-**3. Start backend services (DB, Redis, API)**
-```bash
-docker compose up --build
-```
+# 3. Seed synthetic data (if not already done)
+docker exec spectra-backend python -m app.data_gen.run --persons 200 --events 800
 
-**4. Run database migrations** (first time only, or after schema changes)
-```bash
-docker compose exec backend alembic upgrade head
-```
+# 4. Build graph layer in Neo4j
+docker exec spectra-backend python -m app.data_gen.graph_builder
 
-**5. Generate synthetic data** (first time only)
-```bash
-docker compose exec backend python -m app.data_gen.run --persons 500 --events 2000
-```
+# 5. Get a token
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo2","password":"demo1234"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-**6. Start frontend dev server**
-```bash
-cd frontend
-npm install
-npm run dev
-# Opens at http://localhost:5173
-```
+# 6. Get a person ID
+PERSON_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/persons?limit=1" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
 
-**7. Verify**
-- API health check: `http://localhost:8000/health`
-- API docs: `http://localhost:8000/docs`
-- Frontend: `http://localhost:5173`
+# 7. Query the graph
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/graph/neighbourhood/$PERSON_ID?hops=2"
 
----
+# 8. Run anomaly detection
+curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/anomalies/run-detection
 
-## Last Commit Hash
+# 9. List anomalies
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/api/v1/anomalies?limit=5"
 
-```
-(fill in before ending session)
-git log -1 --pretty=format:"%H %s"
+# 10. Run all tests
+docker exec spectra-backend pytest tests/unit/ tests/integration/ -v
 ```
 
 ---
 
-## Notes for Next AI / Next Session
-
-<!-- Add any context, gotchas, or decisions that aren't obvious from the code -->
-
-### Decisions Made
-- Using Neo4j **AuraDB free tier** for cloud deployment; local dev uses Docker neo4j image
-- Ethics middleware is in `backend/app/middleware/ethics_guard.py` — do NOT remove or disable it
-- All generated persons have `_synthetic: true` in their metadata JSONB column
-- Frontend runs on port 5173 (Vite default); backend on 8000 (FastAPI default)
-
-### Gotchas
-- The AuraDB free tier has a **1GB storage limit** — keep synthetic dataset under ~50k entities
-- Neo4j Docker image requires `NEO4J_AUTH=neo4j/changeme` env var (not just password)
-- Vite proxies `/api` to backend in dev — see `vite.config.ts` proxy config
-
-### Open Questions / Decisions Deferred
-- [ ] Should anomaly scores be pre-computed on generation or computed on-demand? (leaning: pre-compute in Phase 3)
-- [ ] Do we need pagination on the graph endpoint? (yes, for large datasets in Phase 5)
-- [ ] Export format for reports: PDF vs CSV? (defer to Phase 4)
-
----
-
-*Update this file before ending every session. Commit it with your last commit.*
+*Update this file before ending every session.*
