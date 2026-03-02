@@ -25,4 +25,5 @@ class AnomalyResponse(BaseModel):
 
 class DetectionResult(BaseModel):
     flagged: int
+    skipped_duplicates: int = 0   # AUDIT FIX: was missing, service returns this field
     duration_ms: float

@@ -110,7 +110,15 @@ export interface AnomalyRecord {
 
 export interface DetectionResult {
     flagged: number
+    skipped_duplicates: number   // AUDIT FIX: was missing
     duration_ms: number
+}
+
+// ── User ──────────────────────────────────────────────────────────────────────
+export interface UserResponse {
+    id: string
+    username: string
+    is_active: boolean
 }
 
 // ── API Pagination ────────────────────────────────────────────────────────────

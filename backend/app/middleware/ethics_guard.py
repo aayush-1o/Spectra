@@ -1,18 +1,29 @@
 """
 Spectra — Ethics Guard Middleware
-Blocks any POST/PUT request body that contains patterns matching real PII.
+Blocks any POST/PUT/PATCH request body that contains patterns matching real PII.
 
 This is a FIRST-CLASS safety feature. Do NOT remove or disable.
 ⚠️ Spectra only accepts 100% synthetic (computer-generated) data.
+
+AUDIT FIXES (Phase 7.1):
+  1. Body size cap: reject payloads > 1 MB before regex scan (anti-DoS).
+  2. NFKC normalisation: collapses Unicode homoglyphs / full-width characters
+     (e.g. ＋44 becomes +44) so bypass via non-ASCII lookalikes is impossible.
 """
 
 import json
 import re
+import unicodedata
 from typing import Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
+# ── Body size limit ────────────────────────────────────────────────────────────
+# Spectra only processes synthetic data — real payloads are tiny JSON objects.
+# Anything larger than 1 MB is rejected before pattern scanning (anti-DoS).
+_MAX_BODY_BYTES = 1 * 1024 * 1024  # 1 MB
 
 # ── Real PII patterns that must be rejected ────────────────────────────────────
 _REAL_PII_PATTERNS: list[tuple[str, re.Pattern]] = [
@@ -43,19 +54,35 @@ _REJECTION_MESSAGE = (
 
 class EthicsGuardMiddleware(BaseHTTPMiddleware):
     """
-    Inspects POST and PUT request bodies for real PII patterns.
+    Inspects POST, PUT, and PATCH request bodies for real PII patterns.
     Returns HTTP 400 with an explanation if any pattern is matched.
+    Returns HTTP 413 if the body exceeds 1 MB.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         if request.method in ("POST", "PUT", "PATCH"):
             body_bytes = await request.body()
 
+            # ── 1. Reject oversized payloads (anti-DoS) ───────────────────────
+            if len(body_bytes) > _MAX_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "error": "PAYLOAD_TOO_LARGE",
+                        "message": (
+                            "Request body exceeds 1 MB. "
+                            "Spectra only accepts compact synthetic data payloads."
+                        ),
+                    },
+                )
+
             if body_bytes:
-                try:
-                    body_text = body_bytes.decode("utf-8", errors="replace")
-                except Exception:
-                    body_text = ""
+                body_text = body_bytes.decode("utf-8", errors="replace")
+
+                # ── 2. NFKC normalise to collapse Unicode homoglyphs ──────────
+                # This prevents bypass via full-width chars like ＋44 → +44,
+                # or full-width digits ０１２３ → 0123, etc.
+                body_text = unicodedata.normalize("NFKC", body_text)
 
                 for pattern_name, pattern in _REAL_PII_PATTERNS:
                     if pattern.search(body_text):

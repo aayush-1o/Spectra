@@ -2,18 +2,15 @@
 Spectra — Structured Logging Middleware
 Phase 7: Emits one JSON log line per request with key observability fields.
 
+AUDIT FIX (Phase 7.1):
+  - NEVER re-raise from dispatch() — this bypassed FastAPI's exception handler
+    and caused uvicorn to return plain-text "Internal Server Error".
+  - Instead, return a JSONResponse(500) so the client always gets JSON.
+  - Log only type(exc).__name__ (not the full message) to avoid leaking
+    internal SQL / file paths into production logs.
+
 In development: uses standard Python logging (human-readable).
 In production:  emits JSON so Railway/Render/Datadog can parse structured fields.
-
-Log fields per request:
-  timestamp     ISO-8601 UTC
-  method        HTTP method
-  path          Request path (query string excluded for brevity)
-  status_code   Response status
-  duration_ms   Wall clock time (same source as TimingMiddleware)
-  client_ip     X-Forwarded-For → fallback to direct client host
-  environment   From settings
-  error         Only present on 5xx — exception message
 """
 
 import json
@@ -23,6 +20,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
@@ -37,6 +35,8 @@ class StructuredLoggingMiddleware(BaseHTTPMiddleware):
     - Health / ready probes are logged at DEBUG level to avoid noise.
     - 5xx responses are logged at ERROR level so they surface in cloud dashboards.
     - All other responses are logged at INFO level.
+    - Exceptions are caught and returned as JSON 500 (never re-raised) so
+      FastAPI's error handler chain is not bypassed.
     """
 
     QUIET_PATHS = {"/health", "/ready", "/favicon.ico"}
@@ -48,21 +48,34 @@ class StructuredLoggingMiddleware(BaseHTTPMiddleware):
             or (request.client.host if request.client else "unknown")
         )
 
-        exc_detail: str | None = None
         try:
             response = await call_next(request)
         except Exception as exc:
-            exc_detail = str(exc)
+            # ── AUDIT FIX: do NOT re-raise ────────────────────────────────────
+            # Re-raising here bypasses FastAPI's exception handler and makes
+            # uvicorn return plain-text "Internal Server Error" (text/plain).
+            # We log the exception CLASS (not message) to avoid leaking SQL /
+            # internal paths, then return a clean JSON 500.
             elapsed_ms = (time.perf_counter() - t0) * 1000
+            exc_class = type(exc).__name__
+            logger.exception(
+                "Unhandled exception [%s] on %s %s",
+                exc_class,
+                request.method,
+                request.url.path,
+            )
             self._emit(
                 method=request.method,
                 path=request.url.path,
                 status_code=500,
                 duration_ms=elapsed_ms,
                 client_ip=client_ip,
-                error=exc_detail,
+                error=exc_class,   # class only — NOT str(exc)
             )
-            raise
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal Server Error"},
+            )
 
         elapsed_ms = (time.perf_counter() - t0) * 1000
         self._emit(
@@ -94,7 +107,7 @@ class StructuredLoggingMiddleware(BaseHTTPMiddleware):
             "environment": settings.environment,
         }
         if error:
-            record["error"] = error
+            record["error"] = error   # exception class name, not message
 
         # Choose log level
         if status_code >= 500:
