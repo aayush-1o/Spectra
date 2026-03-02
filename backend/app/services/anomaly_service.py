@@ -18,7 +18,8 @@ from datetime import datetime, timezone
 
 import numpy as np
 from sklearn.ensemble import IsolationForest
-from sqlalchemy import func, select, tuple_
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert  # AUDIT FIX: idempotent insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.anomaly import AnomalyAlgorithm, AnomalyRecord, EntityType
@@ -169,9 +170,44 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
                             )
                         )
 
-    # ── Persist to Postgres ───────────────────────────────────────────────────
+    # ── Persist to Postgres ────────────────────────────────────────────────────
+    # AUDIT FIX: replace db.add_all() with an idempotent INSERT ... ON CONFLICT DO NOTHING.
+    #
+    # Root cause of the TOCTOU race:
+    #   1. Two concurrent run-detection calls both execute _load_existing_pairs() at T=0.
+    #   2. Both see an empty set (no records yet) and build the same anomaly_records list.
+    #   3. Both call db.add_all() → the second commit hits the unique DB constraint on
+    #      (entity_id, algorithm) → IntegrityError → unhandled 500 in the API.
+    #
+    # Fix: use PostgreSQL's INSERT ... ON CONFLICT (entity_id, algorithm) DO NOTHING.
+    # This makes every insert idempotent at the DB level with a single round-trip.
+    # The in-process _load_existing_pairs() pre-check is kept as a fast-path to avoid
+    # building AnomalyRecord objects we know will be skipped, but it no longer needs to
+    # be the authoritative guard.
     if anomaly_records:
-        db.add_all(anomaly_records)
+        stmt = (
+            pg_insert(AnomalyRecord)
+            .values(
+                [
+                    {
+                        "id":           rec.id,
+                        "entity_id":    rec.entity_id,
+                        "entity_type":  rec.entity_type,
+                        "anomaly_type": rec.anomaly_type,
+                        "score":        rec.score,
+                        "description":  rec.description,
+                        "algorithm":    rec.algorithm,
+                        "detected_at":  rec.detected_at,
+                        "created_at":   rec.detected_at,   # same timestamp for new records
+                    }
+                    for rec in anomaly_records
+                ]
+            )
+            .on_conflict_do_nothing(
+                index_elements=["entity_id", "algorithm"]  # matches migration 0003 unique index
+            )
+        )
+        await db.execute(stmt)
         await db.commit()
 
     elapsed_ms = (time.perf_counter() - t0) * 1000
