@@ -1,9 +1,14 @@
 """
 Spectra — Person Model (Synthetic)
 ⚠️ All Person records are 100% computer-generated fake data.
+
+Phase 8: Added phone numbers, email, nationality, alias, risk_category,
+         group_memberships, fake_id_number, risk_score, last_seen_* fields.
 """
 
-from sqlalchemy import JSON, ForeignKey, String, Date, Text
+from datetime import datetime
+
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, String, Date, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -18,6 +23,23 @@ class Person(UUIDMixin, TimestampMixin, Base):
     location_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("locations.id", ondelete="SET NULL"), nullable=True, index=True
     )
+
+    # ── Phase 8: New person fields ────────────────────────────────────────────
+    fake_phone_primary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    fake_phone_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    fake_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    fake_nationality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    fake_alias: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    risk_category: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    group_memberships: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
+    fake_id_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Last seen location (filled in after events are generated)
+    last_seen_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_seen_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # JSONB metadata — always contains {"_synthetic": true}
     metadata_: Mapped[dict] = mapped_column(
         "metadata",

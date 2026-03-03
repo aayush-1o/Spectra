@@ -3,6 +3,8 @@ Spectra — Graph Builder CLI
 Reads Person + Event rows from Postgres and writes edges to Neo4j.
 Run AFTER `python -m app.data_gen.run` to populate the graph layer.
 
+Phase 8: Writes risk_score and risk_category as properties on Person nodes.
+
 Usage:
     docker exec spectra-backend python -m app.data_gen.graph_builder
 """
@@ -40,16 +42,24 @@ async def build_graph() -> None:
     # ── Write to Neo4j ────────────────────────────────────────────────────────
     async with driver.session(database="neo4j") as neo4j_sess:
 
-        # 1. MERGE Person nodes
+        # 1. MERGE Person nodes — Phase 8: include risk_score and risk_category
         await neo4j_sess.run(
             """
             UNWIND $persons AS p
             MERGE (n:Person {id: p.id})
             SET n.fake_name = p.fake_name,
-                n.occupation = p.occupation
+                n.occupation = p.occupation,
+                n.risk_score = p.risk_score,
+                n.risk_category = p.risk_category
             """,
             persons=[
-                {"id": p.id, "fake_name": p.fake_name, "occupation": p.occupation or ""}
+                {
+                    "id": p.id,
+                    "fake_name": p.fake_name,
+                    "occupation": p.occupation or "",
+                    "risk_score": p.risk_score if p.risk_score is not None else 0.0,
+                    "risk_category": p.risk_category or "low",
+                }
                 for p in persons
             ],
         )
@@ -146,7 +156,8 @@ async def build_graph() -> None:
     elapsed = time.perf_counter() - t0
     print(
         f"[GraphBuilder] ✅ Done in {elapsed:.2f}s — "
-        f"{len(call_msg_events)} CONTACTED + {len(transfer_events)} TRANSACTED + {len(meeting_events)} VISITED edges written."
+        f"{len(call_msg_events)} CONTACTED + {len(transfer_events)} TRANSACTED + {len(meeting_events)} VISITED edges written. "
+        f"Persons now include risk_score + risk_category properties."
     )
     await driver.close()
 

@@ -1,6 +1,8 @@
 """
 Spectra — AnomalyRecord Model (Synthetic)
 ⚠️ All AnomalyRecord references point to synthetic entities only.
+
+Phase 8: Added dbscan, lof, night_owl_rule to AnomalyAlgorithm enum.
 """
 
 import enum
@@ -21,6 +23,9 @@ class AnomalyAlgorithm(str, enum.Enum):
     isolation_forest = "isolation_forest"
     z_score = "z_score"
     rule_based = "rule_based"
+    dbscan = "dbscan"
+    lof = "lof"
+    night_owl_rule = "night_owl_rule"
 
 
 class AnomalyRecord(UUIDMixin, TimestampMixin, Base):

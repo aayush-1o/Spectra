@@ -7,6 +7,7 @@ export async function listEvents(params?: {
     type?: string
     from_date?: string
     to_date?: string
+    person_id?: string  // Phase 8: filter events for a specific person
 }): Promise<Event[]> {
     const res = await client.get<Event[]>('/api/v1/events', { params })
     return res.data

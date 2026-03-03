@@ -1,12 +1,15 @@
 """
 Spectra — Events API (v1)
 GET /api/v1/events — paginated, filterable list of synthetic events.
+
+Phase 8: Added optional person_id query param to filter events where
+         actor_id == person_id OR target_id == person_id.
 """
 
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user, get_db
@@ -26,6 +29,7 @@ async def list_events(
     type: str | None = Query(default=None, description="Filter by event_type enum value"),
     from_date: datetime | None = Query(default=None, description="Only events on or after this datetime"),
     to_date: datetime | None = Query(default=None, description="Only events on or before this datetime"),
+    person_id: str | None = Query(default=None, description="Filter events where actor_id=id OR target_id=id"),
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ) -> list[EventResponse]:
@@ -53,6 +57,12 @@ async def list_events(
 
     if to_date is not None:
         stmt = stmt.where(Event.occurred_at <= to_date)
+
+    # Phase 8: filter by person participation (actor OR target)
+    if person_id is not None:
+        stmt = stmt.where(
+            or_(Event.actor_id == person_id, Event.target_id == person_id)
+        )
 
     stmt = stmt.offset(offset).limit(limit).order_by(Event.occurred_at.desc())
 

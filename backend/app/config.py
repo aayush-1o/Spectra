@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     # ── App ────────────────────────────────────────────────────────────────────
     environment: str = "development"
 
+    # ── Phase 8: AI Integration ────────────────────────────────────────────────
+    anthropic_api_key: str = "REMOVED_SECRET"
+
+    @property
+    def ANTHROPIC_API_KEY(self) -> str:
+        return self.anthropic_api_key
+
     # Phase 7: Production behaviour flags
     # LOG_LEVEL controls uvicorn + app log level (DEBUG | INFO | WARNING | ERROR)
     log_level: str = "INFO"
@@ -97,6 +104,17 @@ class Settings(BaseSettings):
             errors.append(
                 "JWT_SECRET_KEY is set to a placeholder. "
                 "Generate a real key: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+
+        if self.neo4j_password in ("spectra123", "password", "neo4j"):
+            errors.append(
+                "NEO4J_PASSWORD is set to a known default value. "
+                "Set a strong, unique password via the NEO4J_PASSWORD environment variable."
+            )
+
+        if not self.anthropic_api_key:
+            logger.warning(
+                "ANTHROPIC_API_KEY is not set. NL Search and AI Summary features will be disabled."
             )
 
         if not self.frontend_url and not self.cors_origins_override:

@@ -26,6 +26,7 @@ const GraphPage = lazy(() => import('./pages/GraphPage'))
 const AnomaliesPage = lazy(() => import('./pages/AnomaliesPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const AboutPage = lazy(() => import('./pages/AboutPage'))
+const PersonDetailPage = lazy(() => import('./pages/PersonDetailPage'))
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
 function PageLoader() {
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/anomalies" element={<ProtectedRoute><AnomaliesPage /></ProtectedRoute>} />
           <Route path="/search" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
           <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
+          <Route path="/person/:id" element={<ProtectedRoute><PersonDetailPage /></ProtectedRoute>} />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />

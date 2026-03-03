@@ -1,25 +1,30 @@
 """
 Spectra — Anomaly Detection Service
-Runs IsolationForest + z-score on synthetic event data and persists AnomalyRecord rows.
+Runs IsolationForest + z-score + DBSCAN + LOF + Night Owl Rule on synthetic event data.
 
 Phase 5 optimisations:
-  - Deduplication: existing (entity_id, algorithm) pairs are loaded before insert so
-    repeated runs don't create duplicate rows.  The DB-level unique index on
-    (entity_id, algorithm) in migration 0003 provides a second safety net.
-  - get_anomaly_count(): fast COUNT(*) helper for the metrics endpoint.
-  - Feature matrix generation is unchanged but comments clarify complexity.
+  - Deduplication: existing (entity_id, algorithm) pairs are loaded before insert.
+  - Idempotent INSERT ... ON CONFLICT DO NOTHING at DB level.
 
-Results are cached in Redis for 5 minutes to avoid repeated expensive computation.
+Phase 8 additions:
+  - DBSCAN: cluster-based outlier detection (noise points = anomalies)
+  - LOF: Local Outlier Factor density-based anomalies
+  - Night Owl Rule: persons with >60% of events between 11pm–4am
+
+Results are cached in Redis for 5 minutes.
 """
 
 import json
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import numpy as np
+from sklearn.cluster import DBSCAN
 from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert  # AUDIT FIX: idempotent insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.anomaly import AnomalyAlgorithm, AnomalyRecord, EntityType
@@ -31,15 +36,12 @@ _REDIS_TTL_SECONDS = 300  # 5 minutes
 
 def _build_feature_matrix(events: list[Event]) -> tuple[np.ndarray, list[Event]]:
     """
-    Build a numeric feature matrix from events.  O(n) — vectorised with list
-    comprehension before a single np.array() call (avoids repeated resize).
+    Build a numeric feature matrix from events.  O(n) — vectorised.
 
     Features per event:
       [0] hour_of_day   — captures off-hours behaviour
       [1] amount_usd    — large transfers are a key anomaly signal
       [2] duration_sec  — unusually long/short calls are suspicious
-
-    Returns (matrix shape (n,3), valid_events list same length as matrix rows).
     """
     rows = []
     valid_events = []
@@ -58,11 +60,7 @@ def _build_feature_matrix(events: list[Event]) -> tuple[np.ndarray, list[Event]]
 
 
 async def _load_existing_pairs(db: AsyncSession) -> frozenset[tuple[str, str]]:
-    """
-    Load all (entity_id, algorithm) pairs already in anomaly_records.
-    Used by run_detection to skip duplicates before attempting any INSERT,
-    reducing unnecessary DB round-trips and preventing unique-constraint errors.
-    """
+    """Load all (entity_id, algorithm) pairs already in anomaly_records."""
     result = await db.execute(
         select(AnomalyRecord.entity_id, AnomalyRecord.algorithm)
     )
@@ -73,18 +71,10 @@ async def _load_existing_pairs(db: AsyncSession) -> frozenset[tuple[str, str]]:
 
 async def run_detection(db: AsyncSession, redis_client) -> dict:
     """
-    Run IsolationForest + z-score anomaly detection on all Event rows.
+    Run all anomaly detection algorithms on all Event rows.
 
-    Steps:
-      1. Load all Event rows from Postgres.
-      2. Load existing (entity_id, algorithm) pairs for deduplication.
-      3. Build feature matrix.
-      4. IsolationForest (contamination=0.05) flags outliers.
-      5. Z-score on amount_usd flags high-value transfers (|z| > 2.5).
-      6. Save only NEW AnomalyRecord rows (skip already-flagged pairs).
-      7. Cache summary in Redis with 5-min TTL.
-
-    Returns: {"flagged": int, "skipped_duplicates": int, "duration_ms": float}
+    Algorithms: isolation_forest, z_score, dbscan, lof, night_owl_rule
+    Returns counts per algorithm plus totals.
     """
     t0 = time.perf_counter()
 
@@ -93,7 +83,7 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
     events = result.scalars().all()
 
     if not events:
-        return {"flagged": 0, "skipped_duplicates": 0, "duration_ms": 0.0}
+        return {"flagged": 0, "skipped_duplicates": 0, "duration_ms": 0.0, "by_algorithm": {}}
 
     X, valid_events = _build_feature_matrix(events)
 
@@ -101,40 +91,50 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
     existing_pairs: frozenset[tuple[str, str]] = await _load_existing_pairs(db)
 
     anomaly_records: list[AnomalyRecord] = []
-    already_flagged: set[str] = set()   # within-run dedup (prevents double-alg same event)
+    already_flagged: set[str] = set()  # within-run dedup
     skipped_duplicates: int = 0
+    by_algorithm: dict[str, int] = {}
+
+    def _add_record(event_id: str, alg: AnomalyAlgorithm, anomaly_type: str, score: float, desc: str):
+        nonlocal skipped_duplicates
+        pair = (event_id, alg.value)
+        if pair in existing_pairs:
+            skipped_duplicates += 1
+            return
+        if event_id in already_flagged:
+            return
+        already_flagged.add(event_id)
+        anomaly_records.append(
+            AnomalyRecord(
+                entity_id=event_id,
+                entity_type=EntityType.event,
+                anomaly_type=anomaly_type,
+                score=float(np.clip(score, 0.01, 1.0)),
+                description=desc,
+                algorithm=alg,
+                detected_at=datetime.now(timezone.utc),
+            )
+        )
+        by_algorithm[alg.value] = by_algorithm.get(alg.value, 0) + 1
 
     # ── IsolationForest ───────────────────────────────────────────────────────
-    if len(X) >= 10:  # need enough samples for reliable fit
+    if len(X) >= 10:
         clf = IsolationForest(contamination=0.05, random_state=42, n_estimators=100)
-        preds = clf.fit_predict(X)   # -1 = anomaly, 1 = normal
+        preds = clf.fit_predict(X)
         scores = clf.decision_function(X)
 
         for i, (pred, score) in enumerate(zip(preds, scores)):
             if pred == -1:
                 e = valid_events[i]
-                pair = (e.id, AnomalyAlgorithm.isolation_forest.value)
-                if pair in existing_pairs:
-                    skipped_duplicates += 1
-                    continue
-                if e.id not in already_flagged:
-                    already_flagged.add(e.id)
-                    normalised = float(np.clip(1.0 - (score + 0.5), 0.01, 1.0))
-                    anomaly_records.append(
-                        AnomalyRecord(
-                            entity_id=e.id,
-                            entity_type=EntityType.event,
-                            anomaly_type="isolation_forest_outlier",
-                            score=normalised,
-                            description=(
-                                f"IsolationForest flagged event {e.id[:8]}… "
-                                f"(hour={int(X[i][0])}, amount=${X[i][1]:.0f}, "
-                                f"duration={int(X[i][2])}s)"
-                            ),
-                            algorithm=AnomalyAlgorithm.isolation_forest,
-                            detected_at=datetime.now(timezone.utc),
-                        )
-                    )
+                normalised = float(np.clip(1.0 - (score + 0.5), 0.01, 1.0))
+                _add_record(
+                    e.id,
+                    AnomalyAlgorithm.isolation_forest,
+                    "isolation_forest_outlier",
+                    normalised,
+                    f"IsolationForest flagged event {e.id[:8]}… "
+                    f"(hour={int(X[i][0])}, amount=${X[i][1]:.0f}, duration={int(X[i][2])}s)",
+                )
 
     # ── Z-score on amount_usd (transfer events only) ──────────────────────────
     transfer_amounts = [
@@ -149,41 +149,103 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
             for e, amount in transfer_amounts:
                 z = abs((amount - mean) / std)
                 if z > 2.5:
-                    pair = (e.id, AnomalyAlgorithm.z_score.value)
-                    if pair in existing_pairs:
-                        skipped_duplicates += 1
-                        continue
-                    if e.id not in already_flagged:
-                        already_flagged.add(e.id)
-                        anomaly_records.append(
-                            AnomalyRecord(
-                                entity_id=e.id,
-                                entity_type=EntityType.event,
-                                anomaly_type="high_value_transfer",
-                                score=float(np.clip(z / 5.0, 0.5, 1.0)),
-                                description=(
-                                    f"Transfer of ${amount:,.2f} is {z:.1f}σ above mean "
-                                    f"(μ=${mean:,.0f}, σ=${std:,.0f})"
-                                ),
-                                algorithm=AnomalyAlgorithm.z_score,
-                                detected_at=datetime.now(timezone.utc),
-                            )
-                        )
+                    _add_record(
+                        e.id,
+                        AnomalyAlgorithm.z_score,
+                        "high_value_transfer",
+                        float(np.clip(z / 5.0, 0.5, 1.0)),
+                        f"Transfer of ${amount:,.2f} is {z:.1f}σ above mean "
+                        f"(μ=${mean:,.0f}, σ=${std:,.0f})",
+                    )
+
+    # ── DBSCAN — cluster-based outlier detection ───────────────────────────────
+    if len(X) >= 10:
+        # Normalise features for DBSCAN
+        X_norm = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
+        db_labels = DBSCAN(eps=0.8, min_samples=5).fit_predict(X_norm)
+
+        for i, label in enumerate(db_labels):
+            if label == -1:  # noise = outlier
+                e = valid_events[i]
+                _add_record(
+                    e.id,
+                    AnomalyAlgorithm.dbscan,
+                    "dbscan_noise_point",
+                    0.75,
+                    f"DBSCAN: event {e.id[:8]}… is not part of any cluster "
+                    f"(hour={int(X[i][0])}, amount=${X[i][1]:.0f})",
+                )
+
+    # ── LOF — Local Outlier Factor ────────────────────────────────────────────
+    if len(X) >= 10:
+        # Reset already_flagged for LOF (LOF flags events, not persons, independently)
+        # We allow a second anomaly record per event for a different algorithm
+        n_neighbors = min(20, len(X) - 1)
+        lof = LocalOutlierFactor(n_neighbors=n_neighbors, contamination=0.05)
+        lof_preds = lof.fit_predict(X)
+        lof_scores = -lof.negative_outlier_factor_  # higher = more anomalous
+
+        for i, (pred, lof_score) in enumerate(zip(lof_preds, lof_scores)):
+            if pred == -1:
+                e = valid_events[i]
+                pair = (e.id, AnomalyAlgorithm.lof.value)
+                if pair in existing_pairs:
+                    skipped_duplicates += 1
+                    continue
+                normalised = float(np.clip((lof_score - 1.0) / 5.0, 0.01, 1.0))
+                anomaly_records.append(
+                    AnomalyRecord(
+                        entity_id=e.id,
+                        entity_type=EntityType.event,
+                        anomaly_type="lof_density_outlier",
+                        score=normalised,
+                        description=(
+                            f"LOF: event {e.id[:8]}… is a local density outlier "
+                            f"(score={lof_score:.2f}, threshold≈1.5)"
+                        ),
+                        algorithm=AnomalyAlgorithm.lof,
+                        detected_at=datetime.now(timezone.utc),
+                    )
+                )
+                by_algorithm["lof"] = by_algorithm.get("lof", 0) + 1
+
+    # ── Night Owl Rule — persons with >60% events between 11pm–4am ───────────
+    # Groups events by person, then flags the person entity instead of events.
+    person_events_map: dict[str, list[Event]] = defaultdict(list)
+    for e in events:
+        person_events_map[e.actor_id].append(e)
+        person_events_map[e.target_id].append(e)
+
+    for person_id, p_events in person_events_map.items():
+        if len(p_events) < 5:
+            continue
+        night_count = sum(
+            1 for e in p_events
+            if e.occurred_at and (e.occurred_at.hour >= 23 or e.occurred_at.hour <= 4)
+        )
+        pct = night_count / len(p_events)
+        if pct > 0.60:
+            pair = (person_id, AnomalyAlgorithm.night_owl_rule.value)
+            if pair in existing_pairs:
+                skipped_duplicates += 1
+                continue
+            anomaly_records.append(
+                AnomalyRecord(
+                    entity_id=person_id,
+                    entity_type=EntityType.person,
+                    anomaly_type="night_owl_activity",
+                    score=float(np.clip(pct, 0.60, 1.0)),
+                    description=(
+                        f"Night Owl: {pct*100:.0f}% of {len(p_events)} events "
+                        f"occurred between 11pm–4am (threshold: 60%)"
+                    ),
+                    algorithm=AnomalyAlgorithm.night_owl_rule,
+                    detected_at=datetime.now(timezone.utc),
+                )
+            )
+            by_algorithm["night_owl_rule"] = by_algorithm.get("night_owl_rule", 0) + 1
 
     # ── Persist to Postgres ────────────────────────────────────────────────────
-    # AUDIT FIX: replace db.add_all() with an idempotent INSERT ... ON CONFLICT DO NOTHING.
-    #
-    # Root cause of the TOCTOU race:
-    #   1. Two concurrent run-detection calls both execute _load_existing_pairs() at T=0.
-    #   2. Both see an empty set (no records yet) and build the same anomaly_records list.
-    #   3. Both call db.add_all() → the second commit hits the unique DB constraint on
-    #      (entity_id, algorithm) → IntegrityError → unhandled 500 in the API.
-    #
-    # Fix: use PostgreSQL's INSERT ... ON CONFLICT (entity_id, algorithm) DO NOTHING.
-    # This makes every insert idempotent at the DB level with a single round-trip.
-    # The in-process _load_existing_pairs() pre-check is kept as a fast-path to avoid
-    # building AnomalyRecord objects we know will be skipped, but it no longer needs to
-    # be the authoritative guard.
     if anomaly_records:
         stmt = (
             pg_insert(AnomalyRecord)
@@ -198,13 +260,13 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
                         "description":  rec.description,
                         "algorithm":    rec.algorithm,
                         "detected_at":  rec.detected_at,
-                        "created_at":   rec.detected_at,   # same timestamp for new records
+                        "created_at":   rec.detected_at,
                     }
                     for rec in anomaly_records
                 ]
             )
             .on_conflict_do_nothing(
-                index_elements=["entity_id", "algorithm"]  # matches migration 0003 unique index
+                index_elements=["entity_id", "algorithm"]
             )
         )
         await db.execute(stmt)
@@ -215,6 +277,7 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
         "flagged": len(anomaly_records),
         "skipped_duplicates": skipped_duplicates,
         "duration_ms": round(elapsed_ms, 2),
+        "by_algorithm": by_algorithm,
     }
 
     # ── Cache in Redis ────────────────────────────────────────────────────────
@@ -222,7 +285,7 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
         try:
             await redis_client.set(_REDIS_KEY, json.dumps(summary), ex=_REDIS_TTL_SECONDS)
         except Exception:
-            pass  # Redis failure must NOT break the detection run
+            pass
 
     return summary
 

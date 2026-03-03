@@ -1,12 +1,13 @@
 """
 Spectra — Graph API (v1)
-Neighbourhood, centrality, and shortest-path queries against Neo4j.
+Neighbourhood, centrality, shortest-path, and community detection endpoints.
 
 Phase 5 optimisations:
   - Neighbourhood results cached in Redis (key: graph:neighbourhood:{id}:{hops}, TTL 120s).
-    Cold query (Neo4j) ~80–250ms; warm (Redis) ~2–5ms.
   - CacheHelper is used for all Redis I/O — Redis failure degrades gracefully.
-  - Uses shared Redis pool via get_redis dependency (not per-request connections).
+
+Phase 8:
+  - GET /api/v1/graph/communities — Louvain community detection on Neo4j graph.
 """
 
 import json
@@ -21,6 +22,7 @@ from app.db.neo4j import get_neo4j_session
 from app.db.redis import CacheHelper, get_redis
 from app.models.user import User
 from app.schemas.graph import CentralityEntry, NeighbourhoodResponse, PathResponse
+from app.services.community_service import detect_communities
 from app.services.graph_service import GraphService
 
 logger = logging.getLogger(__name__)
@@ -99,3 +101,23 @@ async def get_shortest_path(
             detail="No path found between the two persons.",
         )
     return PathResponse(path=path)
+
+
+@router.get("/communities")
+async def get_communities(
+    neo4j_session: neo4j.AsyncSession = Depends(get_neo4j_session),
+    redis_client: aioredis.Redis = Depends(get_redis),
+    _current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Run Louvain community detection on the synthetic person interaction graph.
+    Results are cached in Redis for 600 seconds.
+
+    Returns:
+        {
+            "communities": {"person_id": community_id, ...},
+            "community_count": int
+        }
+    Requires Bearer JWT.
+    """
+    return await detect_communities(neo4j_session, redis_client)

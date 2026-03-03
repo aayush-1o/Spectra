@@ -37,3 +37,7 @@ pytest==8.3.4
 pytest-asyncio==0.25.2
 pytest-benchmark==4.0.0
 httpx==0.28.1
+
+# ── Phase 8: AI + Community Detection ─────────────────────────────────────────
+anthropic==0.40.0
+python-louvain==0.16

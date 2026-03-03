@@ -1,6 +1,7 @@
 """
 Spectra — Admin API (v1)
 Phase 5: GET /api/v1/admin/metrics — system health + performance snapshot.
+Phase 8: POST /api/v1/admin/compute-risk-scores — triggers risk score computation.
 
 ⚠️ All data is synthetic. No real persons tracked.
 
@@ -36,6 +37,7 @@ from app.models.event import Event
 from app.models.person import Person
 from app.models.user import User
 from app.services.anomaly_service import get_anomaly_count
+from app.services.risk_service import compute_all_risk_scores
 
 import redis.asyncio as aioredis
 
@@ -59,6 +61,13 @@ class MetricsResponse(BaseModel):
     avg_request_time_ms: float
     slow_request_threshold_ms: float
     request_samples: int
+
+
+class RiskScoreResponse(BaseModel):
+    """Response for POST /api/v1/admin/compute-risk-scores."""
+    updated: int
+    skipped: int
+    message: str
 
 
 @router.get("/metrics", response_model=MetricsResponse)
@@ -137,4 +146,22 @@ async def get_metrics(
         avg_request_time_ms=get_avg_request_time_ms(),
         slow_request_threshold_ms=SLOW_REQUEST_THRESHOLD_MS,
         request_samples=get_request_time_samples(),
+    )
+
+
+@router.post("/compute-risk-scores", response_model=RiskScoreResponse)
+async def trigger_compute_risk_scores(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> RiskScoreResponse:
+    """
+    Trigger computation of risk scores for all synthetic persons.
+    Reads all person events + anomaly records from Postgres and updates risk_score.
+    Requires Bearer JWT.
+    """
+    result = await compute_all_risk_scores(db)
+    return RiskScoreResponse(
+        updated=result["updated"],
+        skipped=result["skipped"],
+        message=f"Risk scores computed for {result['updated']} persons.",
     )

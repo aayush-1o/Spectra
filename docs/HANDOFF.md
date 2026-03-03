@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-**Phase**: 7 — Deployment ✅
+**Phase**: 8 — AI + Risk Intelligence Layer ✅ **COMPLETE**
 
 ---
 
@@ -21,8 +21,8 @@
 | 4 | Frontend + Backend Integration | ✅ Complete |
 | 5 | Optimisation | ✅ Complete |
 | 6 | Testing + Hardening | ✅ Complete |
-| 7 | Deployment | ✅ **Complete** |
-| 8 | Documentation + Mastery | 🔲 Not Started |
+| 7 | Deployment | ✅ Complete |
+| **8** | **AI + Risk Intelligence Layer** | ✅ **Complete** |
 
 > Status key: 🔲 Not Started | 🔄 In Progress | ✅ Complete | 🚧 Blocked
 
@@ -64,48 +64,108 @@
 - [x] Cytoscape.js graph viewer, Leaflet.js map
 - [x] `frontend/src/tests/` — component + page tests with Vitest
 
-### Phase 5 — Optimisation ✅
-- [x] `backend/alembic/versions/0003_performance_indexes.py` — GIN trigram index + anomaly unique constraint
-- [x] `backend/app/services/anomaly_service.py` — full deduplication + `get_anomaly_count()`
-- [x] `backend/app/db/neo4j.py` — `ensure_neo4j_indexes()` called on startup
-- [x] `backend/app/db/redis.py` — shared connection pool (20 conns) + `CacheHelper` with hit/miss stats
-- [x] `backend/app/middleware/timing.py` — `TimingMiddleware` (slow log, rolling avg, `X-Response-Time-Ms`)
-- [x] `backend/app/api/v1/admin.py` — `GET /api/v1/admin/metrics` endpoint
-- [x] `backend/app/api/v1/graph.py` — neighbourhood Redis cache (TTL 120s)
-- [x] `backend/app/api/v1/anomalies.py` — uses shared Redis pool
-- [x] `backend/app/main.py` — lifespan wires all new components, middleware order fixed
-- [x] `backend/Dockerfile` — multi-stage (builder + slim runtime)
-- [x] `backend/.dockerignore` — excludes tests, caches, migrations from image
-- [x] `frontend/Dockerfile` — multi-stage (Node build + nginx:alpine serve)
-- [x] `frontend/nginx.conf` — React Router fallback + static asset caching + API proxy
-- [x] `frontend/.dockerignore` — excludes node_modules/dist
-- [x] `docker-compose.yml` — `spectra-frontend` service, Redis persistence volume
-- [x] `frontend/src/App.tsx` — lazy-loaded heavy pages via React.lazy + Suspense
-- [x] `frontend/src/hooks/useDebounce.ts` — 300ms debounce for search inputs
-- [x] `frontend/src/utils/perf.ts` — `measureAsync` / `measureSync` / `markRender`
-- [x] `backend/requirements.txt` — added `pytest-benchmark==4.0.0`
-- [x] `backend/tests/unit/test_performance.py` — feature matrix speed + dedup logic
-- [x] `backend/tests/unit/test_redis_fallback.py` — CacheHelper graceful degradation
-- [x] `backend/tests/unit/test_indexes.py` — static migration analysis
-- [x] `backend/tests/unit/test_timing_middleware.py` — header, log, deque tests
-### Phase 6 — Testing + Hardening
-- [x] Phase 6 (Testing + Hardening) — completed prior to Phase 7
+### Phase 5 — Optimisation
+- [x] GIN trigram index, anomaly unique constraint, Redis connection pool
+- [x] `TimingMiddleware`, `GET /api/v1/admin/metrics`
+- [x] Multi-stage Dockerfiles, React.lazy code-splitting
 
-### Phase 7 — Deployment ✅
-- [x] `backend/app/config.py` — Phase 7 config flags: `LOG_LEVEL`, `DEBUG`, `ALLOW_DOCS`, `FRONTEND_URL`, `CORS_ORIGINS_OVERRIDE`, `validate_production()` startup guard
-- [x] `backend/app/main.py` — deep `/health` + `/ready` endpoints (ping all 3 services), `StructuredLoggingMiddleware`, `/docs` disabled in production, version 0.7.0
-- [x] `backend/app/db/postgres.py` — DATABASE_URL rewrite (`postgresql://` → `postgresql+asyncpg://`) for Render compatibility
-- [x] `backend/app/middleware/logging.py` — `StructuredLoggingMiddleware`: JSON in production, human-readable in dev, DEBUG for health probes, ERROR for 5xx
-- [x] `backend/scripts/migrate_and_start.sh` — runs `alembic upgrade head` then starts uvicorn (2 workers, respects `$PORT`)
-- [x] `backend/.env.production.example` — cloud-ready env var template (Render/Upstash/AuraDB formats)
-- [x] `.env.example` — updated with all Phase 7 vars + cloud format comments
-- [x] `.github/workflows/ci.yml` — CI on PR to dev/main: backend tests (Postgres + Redis service containers), frontend tests, ruff + eslint lint
-- [x] `.github/workflows/deploy.yml` — Deploy on push to main: pre-deploy tests, Render deploy hook, Vercel CLI prod deploy
-- [x] `render.yaml` — Render Blueprint: web service + managed Postgres, env vars, health check path, auto-deploy
-- [x] `vercel.json` — SPA rewrite rules, security headers, immutable asset caching
-- [x] `docker-compose.prod.yml` — production overrides: no local DBs, migrate-and-start command, ENVIRONMENT=production
-- [x] `docs/DEPLOYMENT.md` — step-by-step guide: AuraDB, Upstash, Render, Vercel, GitHub Actions secrets, migration, JWT rotation, log inspection, rollback
-- [x] `docs/PHASE-7-EXPLANATION.md` — infra architecture diagram, platform choices, env separation, CI/CD flow, health/ready explanation, JSON log format, security checklist, production risks, rollback strategy
+### Phase 6 — Testing + Hardening
+- [x] Completed prior to Phase 7
+
+### Phase 7 — Deployment
+- [x] `backend/app/config.py` — production flags + `validate_production()`
+- [x] `/health` + `/ready` deep probe endpoints
+- [x] `StructuredLoggingMiddleware`, CI/CD workflows, `render.yaml`, `vercel.json`
+- [x] `docs/DEPLOYMENT.md`, `docs/PHASE-7-EXPLANATION.md`
+
+---
+
+### Phase 8 — AI + Risk Intelligence Layer ✅
+
+#### 8.1 Richer Synthetic Data
+- [x] `backend/app/data_gen/constants.py` — SYNTHETIC_ORGS, NATIONALITIES, RISK_CATEGORIES, FAKE_PLATFORMS, DISTRICTS, THREAT_LEVELS, CALL_CHANNELS, TRANSFER_CURRENCIES, FAKE_ALIASES
+- [x] `backend/app/data_gen/person_generator.py` — fake_phone_primary/secondary, fake_email, fake_nationality, fake_alias, risk_category, group_memberships, fake_id_number
+- [x] `backend/app/data_gen/event_generator.py` — channel/is_encrypted (call), content_hash/platform (message), currency/recipient_account (transfer), attendee_count/is_covert (meeting)
+- [x] `backend/app/data_gen/location_generator.py` — district, threat_level (weighted), surveillance_coverage
+- [x] `backend/app/models/person.py` — 12 new columns (contact info, risk_score, aliases, group_memberships)
+- [x] `backend/app/models/location.py` — 3 new columns (district, threat_level, surveillance_coverage)
+- [x] `backend/alembic/versions/0004_richer_persons.py` — ADD COLUMN migration (15 columns)
+- [x] `backend/app/schemas/person.py` — PersonResponse updated
+- [x] `backend/app/schemas/location.py` — LocationResponse updated
+- [x] `frontend/src/types/index.ts` — Person + Location TypeScript interfaces updated
+
+#### 8.2 Person Risk Score
+- [x] `backend/app/services/risk_service.py` — `compute_risk_score()` (4-factor formula) + `compute_all_risk_scores()` (batch)
+- [x] `backend/app/api/v1/admin.py` — `POST /api/v1/admin/compute-risk-scores`
+
+#### 8.3 RiskBadge Component
+- [x] `frontend/src/components/shared/RiskBadge.tsx` — 4-tier color badge (low/medium/high/critical)
+
+#### 8.4 Person Detail Page
+- [x] `frontend/src/pages/PersonDetailPage.tsx` — full profile, identity/contact/affiliations cards
+- [x] Route `/person/:id` added to `frontend/src/App.tsx`
+
+#### 8.5 Entity Timeline
+- [x] `frontend/src/components/timeline/EntityTimeline.tsx` — vertical chronological event history
+- [x] `backend/app/api/v1/events.py` — added `?person_id=` filter
+
+#### 8.6 NL Search Backend
+- [x] `backend/app/services/nl_search_service.py` — Claude-powered query-to-filters
+- [x] `backend/app/api/v1/search.py` — `POST /api/v1/search/nl`
+- [x] `backend/app/main.py` — search router registered
+
+#### 8.7 AI Summary
+- [x] `backend/app/services/ai_summary_service.py` — Claude analyst report generator
+- [x] `backend/app/api/v1/persons.py` — `GET /{id}` (single person) + `GET /{id}/summary` (AI report)
+- [x] `frontend/src/components/person/AISummaryPanel.tsx` — document-styled Claude report viewer
+
+#### 8.8 NL Search Frontend
+- [x] `frontend/src/components/shared/NLSearchBar.tsx` — ✨ NL search bar with result cards
+- [x] `frontend/src/pages/SearchPage.tsx` — Name / AI Search tab toggle
+
+#### 8.9 Map Heatmap
+- [x] `leaflet.heat` installed (`npm install leaflet.heat`)
+- [x] `frontend/src/pages/MapPage.tsx` — Pins/Heatmap toggle; heatmap intensity = event count per location
+
+#### 8.10 Graph Community + Risk Coloring
+- [x] `backend/app/services/community_service.py` — Louvain detection + networkx fallback, Redis cache 600s
+- [x] `backend/app/api/v1/graph.py` — `GET /api/v1/graph/communities`
+- [x] `backend/app/data_gen/graph_builder.py` — writes `risk_score` + `risk_category` to Neo4j Person nodes
+- [x] `frontend/src/components/graph/CytoscapeGraph.tsx` — Risk mode (green→red) + Community mode (12-colour palette), toggle + legend
+
+#### 8.11 Richer Anomaly Detection
+- [x] `backend/app/services/anomaly_service.py` — DBSCAN, LOF, Night Owl Rule (>60% night events)
+- [x] `backend/app/models/anomaly.py` — `dbscan`, `lof`, `night_owl_rule` added to AnomalyAlgorithm enum
+- [x] `backend/alembic/versions/0005_anomaly_algorithms.py` — `ALTER TYPE … ADD VALUE IF NOT EXISTS`
+
+#### 8.12 Tests
+- [x] `backend/tests/test_phase8.py` — 14 unit tests (risk score 6, NL search 4, AnomalyAlgorithm 4)
+
+#### Config + Dependencies
+- [x] `backend/app/config.py` — `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` settings, NEO4J_PASSWORD production guard
+- [x] `backend/requirements.txt` — `anthropic==0.40.0`, `python-louvain==0.16`
+- [x] `.env.example` — `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` documented
+
+#### Documentation
+- [x] `README.md` — Phase 8 badge, feature table, API table, quick-start updated
+- [x] `docs/HANDOFF.md` — Phase 8 section added (this file)
+- [x] `docs/PHASE-8-EXPLANATION.md` — deep-dive explanation
+
+---
+
+## Environment Variables Required
+
+| Variable | Required | Where Used |
+|----------|----------|-----------|
+| `DATABASE_URL` | ✅ Always | Postgres connection |
+| `NEO4J_URI` | ✅ Always | Neo4j connection |
+| `NEO4J_USERNAME` | ✅ Always | Neo4j auth |
+| `NEO4J_PASSWORD` | ✅ Always | Neo4j auth |
+| `REDIS_URL` | ✅ Always | Redis connection |
+| `JWT_SECRET_KEY` | ✅ Always | Auth tokens |
+| `ANTHROPIC_API_KEY` | ⚡ AI features | NL Search + AI Summary |
+| `GOOGLE_API_KEY` | ⚡ Optional | Maps / Gemini AI |
+| `VITE_API_BASE_URL` | ✅ Frontend | API base URL |
 
 ---
 
@@ -128,79 +188,54 @@
 | Redis | Upstash (free) | 10k cmd/day, TLS (`rediss://`) |
 | Neo4j | AuraDB Free | 200MB, always-on |
 
-## GitHub Actions Secrets Required
+---
 
-| Secret | Used By |
-|--------|---------|
-| `RENDER_DEPLOY_HOOK_URL` | `deploy.yml` — triggers Render re-deploy |
-| `VERCEL_TOKEN` | `deploy.yml` — authenticates Vercel CLI |
-| `VERCEL_ORG_ID` | `deploy.yml` — Vercel project org |
-| `VERCEL_PROJECT_ID` | `deploy.yml` — Vercel project ID |
+## How To Run Phase 8 (Fresh Start)
 
+```bash
+# 1. Full rebuild
+docker compose up --build -d
+
+# 2. Run all migrations (0001 → 0005)
+docker exec spectra-backend alembic upgrade head
+
+# 3. Generate Phase 8 synthetic data
+docker exec spectra-backend python -m app.data_gen.run --persons 200 --events 800
+
+# 4. Build Neo4j graph (writes risk_score to Person nodes)
+docker exec spectra-backend python -m app.data_gen.graph_builder
+
+# 5. Compute initial risk scores
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"demo","password":"demo1234"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/v1/admin/compute-risk-scores
+
+# 6. Run Phase 8 tests
+docker exec spectra-backend pytest tests/test_phase8.py -v
+
+# 7. Test AI features (requires ANTHROPIC_API_KEY in .env)
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "people with high risk scores who made large transfers"}' \
+  http://localhost:8000/api/v1/search/nl
+```
+
+---
+
+## Known Nuances + Design Decisions
 
 | # | Description | Area | Severity |
 |---|-------------|------|----------|
-| 1 | Neo4j healthcheck uses `wget` — image must have it (neo4j:5 does) | docker-compose | Low |
-| 2 | `get_async_session()` is an async generator; `graph_builder.py` uses `async for … break` pattern | graph_builder | Low |
-| 3 | IDE shows "Cannot find import" for all packages — Pyre2 doesn't see Docker's site-packages | All files | Info |
-| 4 | `CONCURRENTLY` in migration 0003 requires no active DB transaction — Alembic runs each migration in its own transaction so this is safe | migration | Low |
-| 5 | TimingMiddleware rolling deque is in-process memory — resets on container restart | timing.py | Low |
-| 6 | Frontend `spectra-frontend` Docker service is production-only (nginx); local dev still uses `npm run dev` on port 5173 | frontend | Info |
-
----
-
-## Phase 5 Design Decisions
-
-- **Middleware order**: CORS (outermost) → TimingMiddleware → EthicsGuard (innermost). CORS is outermost so preflight OPTIONS skip timing and ethics checks.
-- **GIN trigram**: Enables `ILIKE '%term%'` without a sequential scan. Requires `pg_trgm` extension.
-- **Dedup strategy**: DB-level unique index + in-service pre-check. The pre-check avoids constraint errors on concurrent runs; the index is the definitive guard.
-- **Redis pool size**: 20 connections — generous for <100 concurrent users, conservative for free-tier Redis.
-- **Lazy loading strategy**: Auth pages (Login, Register) stay eager — they're tiny and always the first screen. Everything else is split.
-
----
-
-## How To Run Phase 5
-
-```bash
-# 1. Full rebuild (picks up multi-stage Dockerfile changes)
-docker compose up --build -d
-
-# 2. Run all migrations (including Phase 5 performance indexes)
-docker exec spectra-backend alembic upgrade head
-
-# 3. Verify Phase 5 tests pass
-docker exec spectra-backend pytest tests/unit/test_performance.py \
-  tests/unit/test_redis_fallback.py \
-  tests/unit/test_indexes.py \
-  tests/unit/test_timing_middleware.py -v
-
-# 4. Run full test suite
-docker exec spectra-backend pytest tests/ -v
-
-# 5. Test metrics endpoint
-TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"demo2","password":"demo1234"}' \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/admin/metrics | python3 -m json.tool
-
-# 6. Verify X-Response-Time-Ms header present
-curl -I -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/persons
-
-# 7. Test graph caching (2nd call should be faster)
-PERSON_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/persons?limit=1" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-time curl -s -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/graph/neighbourhood/$PERSON_ID?hops=2" > /dev/null
-time curl -s -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/graph/neighbourhood/$PERSON_ID?hops=2" > /dev/null
-
-# 8. Test anomaly deduplication (2nd run returns flagged=0)
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/anomalies/run-detection
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/anomalies/run-detection
-```
+| 1 | Pyre2 shows "Cannot find import" for all `app.*` — it doesn't have Docker's Python path. Safe to ignore. | All files | Info |
+| 2 | `transfer_amount` filtering in NL search is done Python-side (not SQL) because `metadata_` is JSONB. Max 50 results. | `search.py` | Low |
+| 3 | Louvain community detection uses `random_state=42` for reproducibility, but results are cached 600s anyway. | `community_service.py` | Low |
+| 4 | `graph_builder.py` uses `async for … break` pattern to get a single session from the async generator. | `graph_builder.py` | Low |
+| 5 | `ANTHROPIC_API_KEY` absent → graceful degradation: NL search returns empty filters, AI summary returns a placeholder string. No crash. | AI services | Info |
+| 6 | Night Owl Rule anomaly records are person-level (entity_type = "person"), not event-level. | `anomaly_service.py` | Low |
 
 ---
 

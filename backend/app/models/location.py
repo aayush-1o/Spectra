@@ -1,11 +1,13 @@
 """
 Spectra — Location Model (Synthetic)
 ⚠️ All Location records are 100% computer-generated fake data.
+
+Phase 8: Added district, threat_level, surveillance_coverage fields.
 """
 
 import enum
 
-from sqlalchemy import JSON, Enum, Float, String
+from sqlalchemy import JSON, Boolean, Enum, Float, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -28,6 +30,12 @@ class Location(UUIDMixin, TimestampMixin, Base):
     location_type: Mapped[LocationType] = mapped_column(
         Enum(LocationType), nullable=False, default=LocationType.unknown
     )
+
+    # ── Phase 8: New location fields ──────────────────────────────────────────
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    threat_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    surveillance_coverage: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
     # JSONB metadata — always contains {"_synthetic": true}
     metadata_: Mapped[dict] = mapped_column(
         "metadata",

@@ -2,15 +2,25 @@
 Spectra — Event Generator
 Pairs persons into synthetic interaction events with realistic time distribution.
 ⚠️ All events are computer-generated. No real communications are modelled.
+
+Phase 8: Added channel, is_encrypted (call); content_hash, platform (message);
+         currency, recipient_account (transfer); attendee_count, is_covert (meeting).
 """
 
+import hashlib
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from app.data_gen.constants import EVENT_TYPES, EVENT_WEIGHTS
+from app.data_gen.constants import (
+    CALL_CHANNELS,
+    EVENT_TYPES,
+    EVENT_WEIGHTS,
+    FAKE_PLATFORMS,
+    TRANSFER_CURRENCIES,
+)
 from app.models.event import Event, EventType
 from app.models.location import Location
 from app.models.person import Person
@@ -39,6 +49,19 @@ def _random_past_datetime(days: int = 365) -> datetime:
     return base.replace(hour=hour, minute=minute, second=second, microsecond=0)
 
 
+def _fake_content_hash() -> str:
+    """Generate a fake SHA256 hex string for message content."""
+    random_bytes = uuid.uuid4().bytes + uuid.uuid4().bytes
+    return hashlib.sha256(random_bytes).hexdigest()
+
+
+def _fake_iban_style() -> str:
+    """Generate a fake IBAN-style recipient account string."""
+    country = random.choice(["MR", "VX", "CY", "DL", "NX"])
+    digits = "".join([str(random.randint(0, 9)) for _ in range(18)])
+    return f"{country}{digits}"
+
+
 class EventGenerator:
     """Generate synthetic Event objects (not yet persisted to DB)."""
 
@@ -55,6 +78,12 @@ class EventGenerator:
         - Event type is sampled using the weighted distribution from constants.
         - occurred_at is weighted toward business hours.
         - metadata_ includes event-specific fields plus _synthetic: True.
+
+        Phase 8 additions per event type:
+        - call: channel (voice/encrypted/unknown), is_encrypted (bool)
+        - message: content_hash (fake SHA256), platform (NexusMail/etc)
+        - transfer: currency (USD/EUR/MeridianCoin), recipient_account (fake IBAN)
+        - meeting: attendee_count (2–10), is_covert (bool, 15% chance)
         """
         if len(persons) < 2:
             raise ValueError("Need at least 2 persons to generate events.")
@@ -80,8 +109,18 @@ class EventGenerator:
             meta: dict = {"_synthetic": True}
             if event_type == EventType.call:
                 meta["duration_seconds"] = random.randint(60, 3600)
+                meta["channel"] = random.choice(CALL_CHANNELS)
+                meta["is_encrypted"] = meta["channel"] == "encrypted" or random.random() < 0.15
+            elif event_type == EventType.message:
+                meta["content_hash"] = _fake_content_hash()
+                meta["platform"] = random.choice(FAKE_PLATFORMS)
             elif event_type == EventType.transfer:
                 meta["amount_usd"] = round(random.uniform(10, 50000), 2)
+                meta["currency"] = random.choice(TRANSFER_CURRENCIES)
+                meta["recipient_account"] = _fake_iban_style()
+            elif event_type == EventType.meeting:
+                meta["attendee_count"] = random.randint(2, 10)
+                meta["is_covert"] = random.random() < 0.15
 
             events.append(
                 Event(
