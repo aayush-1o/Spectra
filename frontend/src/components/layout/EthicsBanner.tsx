@@ -1,19 +1,24 @@
-/**
- * Spectra — Ethics Banner
- * Fixed at top. Non-dismissible. Visible on every page.
- */
+/** Spectra — Ethics Banner (light theme) */
 export default function EthicsBanner() {
     return (
         <div
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2.5 text-center text-xs font-semibold"
-            style={{ background: 'linear-gradient(90deg, #7c3aed 0%, #0ea5e9 100%)', color: '#fff', minHeight: '44px' }}
+            style={{
+                position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
+                height: 'var(--ethics-banner-height)',
+                background: '#0f172a',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: 8, padding: '0 16px',
+                fontSize: 11, fontWeight: 600, letterSpacing: '.04em',
+                color: '#94a3b8',
+                borderBottom: '1px solid #1e293b',
+            }}
         >
-            <span>⚠️</span>
+            <span style={{ color: '#f59e0b' }}>▲</span>
             <span>
-                SYNTHETIC DATA ONLY — Spectra uses 100% computer-generated data.
-                No real people are tracked or surveilled. Educational use only.
+                SYNTHETIC DATA ONLY — All data is 100% computer-generated.
+                No real people are tracked or surveilled.
             </span>
-            <span>⚠️</span>
+            <span style={{ color: '#f59e0b' }}>▲</span>
         </div>
     )
 }

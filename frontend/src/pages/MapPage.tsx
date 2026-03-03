@@ -38,7 +38,6 @@ function HeatmapLayer({ points }: HeatmapLayerProps) {
 
         // Dynamically import leaflet.heat
         import('leaflet.heat').then(() => {
-            // @ts-expect-error leaflet.heat adds L.heatLayer
             const heat = L.heatLayer(points, {
                 radius: 35,
                 blur: 25,

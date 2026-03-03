@@ -16,6 +16,7 @@ Results are cached in Redis for 5 minutes.
 
 import json
 import time
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -106,6 +107,7 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
         already_flagged.add(event_id)
         anomaly_records.append(
             AnomalyRecord(
+                id=str(uuid.uuid4()),  # ← FIX: explicit UUID so bulk insert never gets NULL
                 entity_id=event_id,
                 entity_type=EntityType.event,
                 anomaly_type=anomaly_type,
@@ -178,8 +180,6 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
 
     # ── LOF — Local Outlier Factor ────────────────────────────────────────────
     if len(X) >= 10:
-        # Reset already_flagged for LOF (LOF flags events, not persons, independently)
-        # We allow a second anomaly record per event for a different algorithm
         n_neighbors = min(20, len(X) - 1)
         lof = LocalOutlierFactor(n_neighbors=n_neighbors, contamination=0.05)
         lof_preds = lof.fit_predict(X)
@@ -195,6 +195,7 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
                 normalised = float(np.clip((lof_score - 1.0) / 5.0, 0.01, 1.0))
                 anomaly_records.append(
                     AnomalyRecord(
+                        id=str(uuid.uuid4()),  # ← FIX: explicit UUID
                         entity_id=e.id,
                         entity_type=EntityType.event,
                         anomaly_type="lof_density_outlier",
@@ -210,7 +211,6 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
                 by_algorithm["lof"] = by_algorithm.get("lof", 0) + 1
 
     # ── Night Owl Rule — persons with >60% events between 11pm–4am ───────────
-    # Groups events by person, then flags the person entity instead of events.
     person_events_map: dict[str, list[Event]] = defaultdict(list)
     for e in events:
         person_events_map[e.actor_id].append(e)
@@ -231,6 +231,7 @@ async def run_detection(db: AsyncSession, redis_client) -> dict:
                 continue
             anomaly_records.append(
                 AnomalyRecord(
+                    id=str(uuid.uuid4()),  # ← FIX: explicit UUID
                     entity_id=person_id,
                     entity_type=EntityType.person,
                     anomaly_type="night_owl_activity",

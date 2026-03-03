@@ -19,7 +19,7 @@ from app.schemas.event import EventResponse
 
 router = APIRouter()
 
-_MAX_LIMIT = 100
+_MAX_LIMIT = 200
 
 
 @router.get("", response_model=list[EventResponse])

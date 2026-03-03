@@ -32,6 +32,7 @@ from app.api.v1 import graph as graph_router
 from app.api.v1 import anomalies as anomalies_router
 from app.api.v1 import admin as admin_router
 from app.api.v1 import search as search_router
+from app.api.v1 import stream as stream_router
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ app = FastAPI(
         "⚠️ SYNTHETIC DATA ONLY — Spectra is an educational data analytics simulation. "
         "All data is computer-generated. No real people are tracked."
     ),
-    version="0.8.0",
+    version="0.9.0",
     docs_url=_docs_url,
     redoc_url=_redoc_url,
     lifespan=lifespan,
@@ -126,6 +127,7 @@ app.include_router(graph_router.router,    prefix="/api/v1/graph",     tags=["gr
 app.include_router(anomalies_router.router,prefix="/api/v1/anomalies", tags=["anomalies"])
 app.include_router(admin_router.router,    prefix="/api/v1/admin",     tags=["admin"])
 app.include_router(search_router.router,   prefix="/api/v1/search",    tags=["search"])
+app.include_router(stream_router.router,   prefix="/api/v1/stream",    tags=["stream"])
 
 
 # ── Health Endpoints ───────────────────────────────────────────────────────────

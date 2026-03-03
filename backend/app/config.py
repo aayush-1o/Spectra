@@ -85,7 +85,7 @@ class Settings(BaseSettings):
         if self.cors_origins_override:
             return [o.strip() for o in self.cors_origins_override.split(",") if o.strip()]
 
-        origins = ["http://localhost:5173", "http://localhost:3000"]
+        origins = ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"]
         if self.frontend_url:
             origins.append(self.frontend_url.rstrip("/"))
         return origins

@@ -2,11 +2,12 @@
 
 ![Synthetic Data Only](https://img.shields.io/badge/DATA-SYNTHETIC%20ONLY-red?style=for-the-badge)
 ![No Real Surveillance](https://img.shields.io/badge/NO-REAL%20SURVEILLANCE-red?style=for-the-badge)
-![Phase 8 Complete](https://img.shields.io/badge/Phase-8%20Complete-brightgreen?style=for-the-badge)
+![Phase 10 Complete](https://img.shields.io/badge/Phase-10%20Complete-brightgreen?style=for-the-badge)
 ![CI](https://github.com/aayush-1o/Spectra/actions/workflows/ci.yml/badge.svg?branch=dev)
 ![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi)
+![CesiumJS](https://img.shields.io/badge/CesiumJS-3D%20Globe-6CADDF?style=for-the-badge)
 ![Claude](https://img.shields.io/badge/AI-Claude%20Sonnet-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
@@ -19,7 +20,7 @@
 
 **Spectra** is a full-stack portfolio project that simulates the kind of data-analytics platform built by companies like Palantir — constructed entirely on **synthetic, AI-generated data**.
 
-No real person's name, location, or communication ever enters the system. Every person, event, and location is invented by the data generation engine using Faker + NumPy.
+No real person's name, location, or communication ever enters the system. Every person, event, location, and asset position is invented by the data generation engine using Faker + NumPy.
 
 ### Why build this?
 
@@ -30,7 +31,8 @@ To demonstrate production-level skills across the full stack:
 - Machine learning anomaly detection (IsolationForest, z-score, DBSCAN, LOF)
 - Graph database queries (Cypher, async Neo4j driver, Louvain community detection)
 - React 18 frontend with TypeScript, code-splitting, lazy loading
-- Interactive visualisations: Leaflet map + heatmap + Cytoscape graph
+- **3D globe intelligence platform** — CesiumJS + Resium with real-time asset tracking
+- Interactive visualisations: CesiumJS 3D globe, Leaflet map + heatmap, Cytoscape graph
 - JWT authentication with protected routes
 - **AI-powered NL search and intelligence summaries** (Anthropic Claude Sonnet)
 - **Person risk scoring** (composite 4-factor model)
@@ -56,9 +58,12 @@ To demonstrate production-level skills across the full stack:
 
 | Feature | Status | Description |
 |---------|--------|-------------|
+| 🌍 **3D Globe Tracking** | ✅ | CesiumJS rotating Earth — flights, drones & vehicles tracked in real-time |
+| 🎯 **Visual Intel Modes** | ✅ | Normal / Night Vision / Thermal / Tactical — CSS filter overlays |
+| 🛰 **Classification HUD** | ✅ | `TS // SI-TK // NOFORN` banner, UTC clock, cursor coordinates overlay |
 | 🧑 Synthetic People | ✅ | Personas with names, ages, occupations, nationalities, aliases, phone numbers |
 | 📍 Fake Locations | ✅ | Fictional lat/lon pins with district, threat level, surveillance coverage |
-| 📞 Fake Events | ✅ | Calls, messages, meetings, transfers — all with rich Phase 8 metadata |
+| 📞 Fake Events | ✅ | Calls, messages, meetings, transfers — all with rich metadata |
 | 🕸️ Relationship Graph | ✅ | N-hop Neo4j graph viewer — nodes colored by **risk score** or **community** |
 | 🔴 Person Risk Score | ✅ | Composite 0-100 score (volume, off-hours, transfer size, anomaly count) |
 | 🚨 Anomaly Detection | ✅ | IsolationForest + z-score + DBSCAN + LOF + Night Owl Rule |
@@ -84,6 +89,7 @@ To demonstrate production-level skills across the full stack:
 | Layer | Technology |
 |-------|-----------|
 | Frontend | React 18 + Vite + TypeScript + Tailwind CSS |
+| **3D Globe** | **CesiumJS + Resium** (React wrapper) — Cesium Ion World Imagery |
 | Graph Visualisation | Cytoscape.js (risk + community coloring) |
 | Map | React-Leaflet + leaflet.heat (heatmap) |
 | HTTP Client | Axios (JWT interceptor + 401 auto-redirect) |
@@ -114,7 +120,9 @@ To demonstrate production-level skills across the full stack:
 | 5 | Optimisation | ✅ Complete |
 | 6 | Testing + Hardening | ✅ Complete |
 | 7 | Deployment | ✅ Complete |
-| **8** | **AI + Risk Intelligence Layer** | ✅ **Complete** |
+| 8 | AI + Risk Intelligence Layer | ✅ Complete |
+| 9 | Real-Time Asset Tracking (WebSocket + Deck.gl) | ✅ Complete |
+| **10** | **CesiumJS 3D Globe Intelligence Platform** | ✅ **Complete** |
 
 ---
 
@@ -123,6 +131,7 @@ To demonstrate production-level skills across the full stack:
 ### Prerequisites
 - **Docker Desktop** (runs Postgres, Redis, Neo4j, backend)
 - **Node.js 20+** (for local frontend dev)
+- **Cesium Ion account** (free — get token at [ion.cesium.com](https://ion.cesium.com))
 - **Anthropic API key** (optional — AI features degrade gracefully without it)
 
 ### 1. Clone + configure
@@ -131,7 +140,7 @@ To demonstrate production-level skills across the full stack:
 git clone https://github.com/aayush-1o/Spectra.git
 cd Spectra
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY (get one at console.anthropic.com)
+# Edit .env — add ANTHROPIC_API_KEY and VITE_CESIUM_TOKEN
 ```
 
 ### 2. Start all backend services
@@ -144,16 +153,12 @@ docker compose up --build -d
 
 ```bash
 docker exec spectra-backend alembic upgrade head
-# Applies all migrations including Phase 8 richer schema (0004, 0005)
 ```
 
 ### 4. Generate synthetic data
 
 ```bash
-# ~200 persons, 800 events, 50 locations (richer Phase 8 data)
 docker exec spectra-backend python -m app.data_gen.run --persons 200 --events 800
-
-# Build the Neo4j graph (writes risk_score + risk_category onto Person nodes)
 docker exec spectra-backend python -m app.data_gen.graph_builder
 ```
 
@@ -169,18 +174,20 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
   http://localhost:8000/api/v1/admin/compute-risk-scores
 ```
 
-### 6. Access the app
+### 6. Run the frontend
 
-| Mode | URL | Notes |
-|------|-----|-------|
-| **Production (Docker)** | http://localhost | nginx serves compiled React app |
-| **Dev (hot-reload)** | http://localhost:5173 | `cd frontend && npm install && npm run dev` |
+```bash
+cd frontend
+npm install       # installs cesium, resium, vite-plugin-static-copy
+npm run dev
+```
 
 ### 7. Explore
 
 | URL | Page |
 |-----|------|
 | `/` | Dashboard — KPI cards + events feed |
+| `/live-map` | **3D CesiumJS Globe** — real-time asset tracking |
 | `/map` | Leaflet map — pins **or** activity heatmap |
 | `/graph` | Graph explorer — risk score **or** community coloring |
 | `/anomalies` | Anomaly table (IsolationForest, DBSCAN, LOF, Night Owl) |
@@ -207,16 +214,23 @@ Base URL: `http://localhost:8000`
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/v1/persons` | ✅ | List synthetic persons (GIN-indexed search) |
-| GET | `/api/v1/persons/{id}` | ✅ | **NEW** Single person with all Phase 8 fields |
-| GET | `/api/v1/persons/{id}/summary` | ✅ | **NEW** Claude AI intelligence report |
+| GET | `/api/v1/persons/{id}` | ✅ | Single person with all Phase 8 fields |
+| GET | `/api/v1/persons/{id}/summary` | ✅ | Claude AI intelligence report |
 | GET | `/api/v1/events` | ✅ | List events (filter by type, date range, person_id) |
 | GET | `/api/v1/locations` | ✅ | List synthetic locations (district, threat_level) |
+
+### Real-Time Asset Stream
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| WS | `/api/v1/stream/assets` | ❌ | WebSocket — 1 Hz position broadcast |
+| GET | `/api/v1/stream/assets/snapshot` | ❌ | REST snapshot of current positions |
 
 ### AI Search
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/api/v1/search/nl` | ✅ | **NEW** NL query → Claude → SQL filters → persons |
+| POST | `/api/v1/search/nl` | ✅ | NL query → Claude → SQL filters → persons |
 
 ### Graph
 
@@ -225,57 +239,39 @@ Base URL: `http://localhost:8000`
 | GET | `/api/v1/graph/neighbourhood/{id}` | ✅ | N-hop graph (Redis-cached 120s) |
 | GET | `/api/v1/graph/centrality` | ✅ | Degree centrality ranking |
 | GET | `/api/v1/graph/shortest-path` | ✅ | Shortest path between two persons |
-| GET | `/api/v1/graph/communities` | ✅ | **NEW** Louvain community assignments (Redis-cached 600s) |
+| GET | `/api/v1/graph/communities` | ✅ | Louvain community assignments (Redis-cached 600s) |
 
 ### Anomalies
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/v1/anomalies` | ✅ | List anomaly records (deduplicated) |
-| POST | `/api/v1/anomalies/run-detection` | ✅ | Run all detectors (IsolationForest, DBSCAN, LOF, Night Owl) |
+| POST | `/api/v1/anomalies/run-detection` | ✅ | Run all detectors |
 
 ### Admin
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/v1/admin/metrics` | ✅ | Performance snapshot + cache stats |
-| POST | `/api/v1/admin/compute-risk-scores` | ✅ | **NEW** Batch-compute risk scores for all persons |
+| POST | `/api/v1/admin/compute-risk-scores` | ✅ | Batch-compute risk scores for all persons |
 
 Interactive docs: **http://localhost:8000/docs**
 
 ---
 
-## Phase 8 — What's New
+## Environment Variables
 
-### AI Features (require `ANTHROPIC_API_KEY`)
-
-| Feature | How It Works |
-|---------|-------------|
-| ✨ NL Search | User types free text → Claude extracts filter params (occupation, nationality, transfer amount, time of day, risk score) → SQLAlchemy builds the query |
-| 🤖 AI Intelligence Brief | Claude receives person metadata + last 20 events → generates a 2-3 paragraph classified-style analyst report |
-
-### Risk Scoring
-
-```
-risk_score = volume(25pts) + off_hours(30pts) + transfer_size(25pts) + anomaly_count(20pts)
-```
-
-- **Volume** — person's event count relative to the most active person  
-- **Off-hours** — fraction of events outside 9am–6pm  
-- **Transfer size** — largest transfer vs $50,000 cap  
-- **Anomaly count** — anomaly records capped at 10  
-
-### New Anomaly Algorithms
-
-| Algorithm | What It Finds |
-|-----------|--------------|
-| DBSCAN | Events in sparse regions of feature space (outliers = noise points) |
-| LOF | Events with unusually low local density compared to neighbours |
-| Night Owl Rule | Persons with >60% of activity between 11pm–4am |
-
-### Richer Data
-
-Every generator produces more realistic metadata — phone numbers, nationalities, aliases, districts, threat levels, encryption flags, currencies, covert meeting flags, and more.
+| Variable | Required | Where Used |
+|----------|----------|-----------:|
+| `DATABASE_URL` | ✅ Always | Postgres connection |
+| `NEO4J_URI` | ✅ Always | Neo4j connection |
+| `NEO4J_USERNAME` | ✅ Always | Neo4j auth |
+| `NEO4J_PASSWORD` | ✅ Always | Neo4j auth |
+| `REDIS_URL` | ✅ Always | Redis connection |
+| `JWT_SECRET_KEY` | ✅ Always | Auth tokens |
+| `ANTHROPIC_API_KEY` | ⚡ AI features | NL Search + AI Summary |
+| `VITE_API_BASE_URL` | ✅ Frontend | Backend API URL |
+| `VITE_CESIUM_TOKEN` | ✅ **Globe** | **Cesium Ion world imagery token** |
 
 ---
 
@@ -286,7 +282,7 @@ Every generator produces more realistic metadata — phone numbers, nationalitie
 | `anomaly:last_run` | 300s | Last detection run summary |
 | `graph:neighbourhood:{id}:{hops}` | 120s | Serialised neighbourhood graph |
 | `dashboard:kpis` | 60s | Person / event / anomaly counts |
-| `graph:communities` | 600s | **NEW** Louvain partition dict |
+| `graph:communities` | 600s | Louvain partition dict |
 
 ---
 
@@ -296,8 +292,8 @@ Every generator produces more realistic metadata — phone numbers, nationalitie
 # All backend tests
 docker exec spectra-backend pytest tests/ -v
 
-# Phase 8 unit tests only (risk score, NL search, anomaly enum)
-docker exec spectra-backend pytest tests/test_phase8.py -v
+# Phase 9 unit tests (WebSocket stream, telemetry)
+docker exec spectra-backend pytest tests/test_phase9.py -v
 
 # Frontend tests
 cd frontend && npm run test
@@ -312,9 +308,11 @@ cd frontend && npm run test
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design + tech choices |
 | [HANDOFF.md](docs/HANDOFF.md) | Phase-by-phase progress tracker |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step deployment guide |
-| [PHASE-8-EXPLANATION.md](docs/PHASE-8-EXPLANATION.md) | **NEW** Phase 8 deep dive — AI, risk, community, anomaly |
-| [PHASE-7-EXPLANATION.md](docs/PHASE-7-EXPLANATION.md) | Deployment: infra diagram, CI/CD, security checklist |
-| [PHASE-5-EXPLANATION.md](docs/PHASE-5-EXPLANATION.md) | Optimisation: benchmarks, Redis keys, debugging guide |
+| [PHASE-10-EXPLANATION.md](docs/PHASE-10-EXPLANATION.md) | **NEW** CesiumJS 3D globe deep dive |
+| [PHASE-9-EXPLANATION.md](docs/PHASE-9-EXPLANATION.md) | WebSocket real-time tracking |
+| [PHASE-8-EXPLANATION.md](docs/PHASE-8-EXPLANATION.md) | AI, risk scoring, community detection |
+| [PHASE-7-EXPLANATION.md](docs/PHASE-7-EXPLANATION.md) | Deployment: infra, CI/CD, security |
+| [PHASE-5-EXPLANATION.md](docs/PHASE-5-EXPLANATION.md) | Optimisation: benchmarks, Redis keys |
 
 ---
 
@@ -324,8 +322,6 @@ cd frontend && npm run test
 > No real person's information is collected, stored, or processed.
 > This project cannot and does not surveil real human beings.
 > It was built solely to demonstrate software engineering skills.
-
-See [ETHICS.md](ETHICS.md) for the full ethics statement.
 
 ---
 

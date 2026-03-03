@@ -12,16 +12,24 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@deck.gl/layers": "^9.2.10",
+    "@deck.gl/react": "^9.2.10",
     "@types/leaflet.heat": "^0.2.5",
     "axios": "^1.13.6",
+    "cesium": "^1.139.0",
     "cytoscape": "^3.33.1",
+    "deck.gl": "^9.2.10",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
+    "maplibre-gl": "^5.19.0",
     "react": "^19.2.0",
     "react-cytoscapejs": "^2.0.0",
     "react-dom": "^19.2.0",
     "react-leaflet": "^5.0.0",
-    "react-router-dom": "^7.13.1"
+    "react-map-gl": "^8.1.0",
+    "react-router-dom": "^7.13.1",
+    "resium": "^1.19.4",
+    "vite-plugin-static-copy": "^3.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

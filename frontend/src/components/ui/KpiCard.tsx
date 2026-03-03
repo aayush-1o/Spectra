@@ -1,33 +1,71 @@
+/**
+ * Spectra — KPI Card (Palantir light theme)
+ */
+
 interface KpiCardProps {
-    icon: string
+    icon: React.ReactNode
     label: string
     value: number | string | null
     loading?: boolean
-    color?: 'cyan' | 'violet' | 'amber' | 'emerald' | 'rose'
+    color?: 'indigo' | 'blue' | 'teal' | 'amber' | 'rose'
+    delta?: string
 }
 
-const colors = {
-    cyan: { border: 'border-cyan-500/30', icon: 'text-cyan-400', val: 'text-cyan-300' },
-    violet: { border: 'border-violet-500/30', icon: 'text-violet-400', val: 'text-violet-300' },
-    amber: { border: 'border-amber-500/30', icon: 'text-amber-400', val: 'text-amber-300' },
-    emerald: { border: 'border-emerald-500/30', icon: 'text-emerald-400', val: 'text-emerald-300' },
-    rose: { border: 'border-rose-500/30', icon: 'text-rose-400', val: 'text-rose-300' },
+const palette = {
+    indigo: { bar: '#4f46e5', bg: '#eef2ff', text: '#4338ca' },
+    blue: { bar: '#2563eb', bg: '#eff6ff', text: '#1d4ed8' },
+    teal: { bar: '#0d9488', bg: '#f0fdfa', text: '#0f766e' },
+    amber: { bar: '#d97706', bg: '#fffbeb', text: '#b45309' },
+    rose: { bar: '#dc2626', bg: '#fef2f2', text: '#b91c1c' },
 }
 
-export default function KpiCard({ icon, label, value, loading, color = 'cyan' }: KpiCardProps) {
-    const c = colors[color]
+export default function KpiCard({ icon, label, value, loading, color = 'indigo', delta }: KpiCardProps) {
+    const p = palette[color]
     return (
-        <div className={`rounded-xl border ${c.border} bg-slate-800/40 p-5 flex flex-col gap-2`}>
-            <div className="flex items-center gap-2">
-                <span className={`text-2xl ${c.icon}`}>{icon}</span>
-                <span className="text-sm text-slate-400 font-medium">{label}</span>
-            </div>
-            {loading ? (
-                <div className="h-8 w-24 rounded bg-slate-700 animate-pulse" />
-            ) : (
-                <span className={`text-3xl font-black ${c.val}`}>
-                    {value ?? '—'}
+        <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '18px 20px',
+            boxShadow: 'var(--shadow-sm)',
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+        }}>
+            {/* Accent bar */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: p.bar }} />
+
+            {/* Label row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '.06em', textTransform: 'uppercase' }}>
+                    {label}
                 </span>
+                <span style={{
+                    width: 30, height: 30, borderRadius: 6,
+                    background: p.bg, color: p.text,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14,
+                }}>
+                    {icon}
+                </span>
+            </div>
+
+            {/* Value */}
+            {loading ? (
+                <div style={{ height: 32, width: 80, borderRadius: 4, background: '#e2e8f0', animation: 'pulse 1.5s infinite' }} />
+            ) : (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                        {value ?? '—'}
+                    </span>
+                    {delta && (
+                        <span style={{ fontSize: 12, fontWeight: 500, color: p.text }}>
+                            {delta}
+                        </span>
+                    )}
+                </div>
             )}
         </div>
     )

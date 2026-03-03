@@ -1,6 +1,5 @@
 /**
- * Spectra — App Layout
- * Combines EthicsBanner + Sidebar + page content.
+ * Spectra — App Layout (light theme)
  */
 import type { ReactNode } from 'react'
 import EthicsBanner from './EthicsBanner'
@@ -8,14 +7,11 @@ import Sidebar from './Sidebar'
 
 export default function Layout({ children }: { children: ReactNode }) {
     return (
-        <div className="flex h-screen overflow-hidden" style={{ background: '#0a0f1e' }}>
-            {/* Fixed ethics banner across the full top */}
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-base)' }}>
             <EthicsBanner />
-
-            {/* Sidebar + main content below banner */}
-            <div className="flex w-full" style={{ marginTop: '44px', height: 'calc(100vh - 44px)' }}>
+            <div style={{ display: 'flex', flex: 1, marginTop: 'var(--ethics-banner-height)', overflow: 'hidden' }}>
                 <Sidebar />
-                <main className="flex-1 overflow-y-auto p-6 text-slate-100">
+                <main style={{ flex: 1, overflowY: 'auto', padding: '28px 32px', color: 'var(--text-primary)' }}>
                     {children}
                 </main>
             </div>
