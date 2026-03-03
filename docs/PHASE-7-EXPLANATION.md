@@ -1,7 +1,5 @@
 # Phase 7 — Deployment Explanation
 
-> ⚠️ All data is 100% synthetic. No real surveillance. Educational use only.
-
 This document explains every decision made in Phase 7, the production
 deployment of Spectra.
 
@@ -144,7 +142,7 @@ Used by: Load balancers, smoke tests after deploy, manual validation.
 
 ```bash
 # Validate production is fully ready
-curl -f https://spectra-api.onrender.com/ready
+curl -f https://<your-render-url>/ready
 # exit 0 if all services up, exit 22 if 503
 ```
 
@@ -201,7 +199,7 @@ Render's log aggregator parses JSON lines — you can filter by `status_code`, `
 | Risk | Mitigation |
 |------|-----------|
 | Render free tier spins down | First request after idle takes ~30s. Use UptimeRobot free ping to keep awake |
-| AuraDB 200MB limit | With synthetic data (200 persons, 800 events) usage is ~10MB |
+| AuraDB 200MB limit | With current data scale (~5,000 persons) usage is well within limits |
 | Upstash 10k cmd/day limit | Each page load uses ~2-4 Redis commands. 10k covers ~2500 page loads/day |
 | Render free Postgres 90-day expiry | Databases expire after 90 days on free tier — upgrade or migrate before expiry |
 | Cold-start Neo4j connection | `ensure_neo4j_indexes()` is non-fatal; system degrades gracefully |
@@ -234,17 +232,17 @@ alembic downgrade -1   # revert one migration
 
 ---
 
-## 10. Production URL
+## 10. Production URLs
 
-| Service | URL |
-|---------|-----|
-| Backend API | `https://spectra-api.onrender.com` (update once deployed) |
-| Frontend | `https://spectra-simsight.vercel.app` (update once deployed) |
+The project is **not currently hosted**. URLs below are placeholders for when deployment is configured.
+
+| Service | Placeholder URL |
+|---------|----------------|
+| Backend API | `https://<your-render-url>` |
+| Frontend | `https://<your-vercel-url>` |
 | API Docs | Disabled in production (`ALLOW_DOCS=false`) |
-| Health | `https://spectra-api.onrender.com/health` |
-| Ready | `https://spectra-api.onrender.com/ready` |
-
-> Update these URLs in `HANDOFF.md` and the `README.md` CI badge once deployment is complete.
+| Health | `https://<your-render-url>/health` |
+| Ready | `https://<your-render-url>/ready` |
 
 ---
 
