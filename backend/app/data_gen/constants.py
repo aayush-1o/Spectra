@@ -21,7 +21,7 @@ LON_MAX = CITY_CENTRE_LON + BBOX_DELTA
 EVENT_TYPES = ["call", "message", "meeting", "transfer"]
 EVENT_WEIGHTS = [0.40, 0.35, 0.15, 0.10]
 
-# ── Occupations (fictional) ───────────────────────────────────────────────────
+# ── Occupations (fictional, 55 entries) ───────────────────────────────────────
 OCCUPATIONS = [
     "Systems Analyst",
     "Data Courier",
@@ -43,6 +43,42 @@ OCCUPATIONS = [
     "Asset Manager",
     "Document Control Officer",
     "Transfer Supervisor",
+    # Extended occupations
+    "Cyber Intelligence Analyst",
+    "Deep Cover Operative",
+    "Financial Strategist",
+    "Counter-Intelligence Specialist",
+    "Cryptographic Engineer",
+    "Geospatial Analyst",
+    "Signals Intelligence Officer",
+    "Human Intelligence Coordinator",
+    "Open Source Intelligence Analyst",
+    "Threat Assessment Specialist",
+    "Border Control Officer",
+    "Maritime Security Consultant",
+    "Aviation Security Analyst",
+    "Sanctions Compliance Officer",
+    "Money Laundering Investigator",
+    "Cyber Forensics Examiner",
+    "Dark Web Analyst",
+    "Supply Chain Auditor",
+    "Covert Surveillance Officer",
+    "Technical Collection Specialist",
+    "Biometric Systems Engineer",
+    "Psychological Operations Officer",
+    "Strategic Communications Advisor",
+    "Economic Intelligence Analyst",
+    "Critical Infrastructure Protection Specialist",
+    "Counter-Proliferation Officer",
+    "Liaison Intelligence Officer",
+    "Special Operations Coordinator",
+    "Identity Verification Specialist",
+    "Pattern-of-Life Analyst",
+    "Network Topology Engineer",
+    "Quantum Communications Researcher",
+    "Black Market Infiltration Specialist",
+    "Financial Intelligence Unit Officer",
+    "Covert Technical Support Officer",
 ]
 
 # ── Building Name Generators ──────────────────────────────────────────────────
@@ -72,7 +108,7 @@ SYNTHETIC_ORGS = [
     "Prism Asset Holdings",
 ]
 
-# ── Phase 8: Nationalities (30 country names) ─────────────────────────────────
+# ── Phase 8+: Nationalities (55 fictional country names) ──────────────────────
 NATIONALITIES = [
     "Meridian",
     "Valtoran",
@@ -104,6 +140,32 @@ NATIONALITIES = [
     "Coppergate",
     "Ironbell",
     "Steelmark",
+    # Extended nationalities
+    "Aetherian",
+    "Calvoric",
+    "Drakorian",
+    "Elsinoran",
+    "Fornaxian",
+    "Gruvian",
+    "Halvoric",
+    "Irontide",
+    "Jervisian",
+    "Kaelthari",
+    "Luminaran",
+    "Molvoran",
+    "Nordavian",
+    "Obsidian",
+    "Paltorian",
+    "Quartzian",
+    "Ravenic",
+    "Sandorian",
+    "Tarquellan",
+    "Ulvorean",
+    "Valdrusian",
+    "Westmerian",
+    "Xanthorian",
+    "Yldirian",
+    "Zephyrian",
 ]
 
 # ── Phase 8: Risk Categories with weights ─────────────────────────────────────

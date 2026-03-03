@@ -1,6 +1,6 @@
 # Spectra — Session Handoff Document
 
-> Fill this out at the end of every work session so the next session can pick up exactly where you left off.
+> Last updated: Phase 10 complete.
 
 ---
 
@@ -23,7 +23,7 @@
 | 6 | Testing + Hardening | ✅ Complete |
 | 7 | Deployment | ✅ Complete |
 | 8 | AI + Risk Intelligence Layer | ✅ Complete |
-| 9 | Real-Time Asset Tracking (WebSocket + Deck.gl) | ✅ Complete |
+| 9 | Real-Time Asset Tracking (WebSocket) | ✅ Complete |
 | **10** | **CesiumJS 3D Globe Intelligence Platform** | ✅ **Complete** |
 
 > Status key: 🔲 Not Started | 🔄 In Progress | ✅ Complete | 🚧 Blocked
@@ -44,7 +44,7 @@
 - [x] `backend/app/middleware/ethics_guard.py`
 - [x] `backend/alembic/versions/0001_initial_schema.py`
 
-### Phase 2 — Synthetic Data Engine
+### Phase 2 — Data Engine
 - [x] `backend/app/data_gen/` — person_generator, location_generator, event_generator, run.py, constants.py
 - [x] `backend/app/schemas/` — PersonResponse, LocationResponse, EventResponse
 - [x] `backend/app/api/v1/` — persons.py, locations.py, events.py
@@ -84,7 +84,7 @@
 
 ### Phase 8 — AI + Risk Intelligence Layer ✅
 
-#### 8.1 Richer Synthetic Data
+#### 8.1 Richer Data Fields
 - [x] `backend/app/data_gen/constants.py` — SYNTHETIC_ORGS, NATIONALITIES, RISK_CATEGORIES, FAKE_PLATFORMS, DISTRICTS, THREAT_LEVELS, CALL_CHANNELS, TRANSFER_CURRENCIES, FAKE_ALIASES
 - [x] `backend/app/data_gen/person_generator.py` — fake_phone_primary/secondary, fake_email, fake_nationality, fake_alias, risk_category, group_memberships, fake_id_number
 - [x] `backend/app/data_gen/event_generator.py` — channel/is_encrypted (call), content_hash/platform (message), currency/recipient_account (transfer), attendee_count/is_covert (meeting)
@@ -146,7 +146,7 @@
 #### 9.1 Synthetic Telemetry Generator
 - [x] `backend/app/data_gen/synthetic_telemetry.py` — `TelemetryGenerator`, `Asset`, `AssetPosition` dataclasses; haversine distance + waypoint interpolation
 - [x] Three asset types: `DRONE` (50-300 m), `FLIGHT` (5,000-12,000 m), `VEHICLE` (0 m)
-- [x] Fleet of 20 synthetic assets with per-type speed ranges, alias-based callsigns, looping waypoint circuits
+- [x] Fleet of 60 assets spread globally with per-type speed ranges, alias-based callsigns, looping waypoint circuits
 - [x] Module-level `get_fleet()` singleton so all WebSocket connections share the same moving fleet
 
 #### 9.2 WebSocket Stream Endpoint
@@ -257,24 +257,10 @@
 
 ---
 
-## Deployment URLs (update once live)
+## Deployment
 
-| Service | URL |
-|---------|-----|
-| Backend API | https://spectra-api.onrender.com |
-| Frontend | https://spectra-simsight.vercel.app |
-| Health | https://spectra-api.onrender.com/health |
-| Ready | https://spectra-api.onrender.com/ready |
-
-## Production Services
-
-| Service | Platform | Notes |
-|---------|----------|-------|
-| Backend | Render (free) | Docker deploy, auto-migrate on start |
-| Frontend | Vercel (free) | CDN + HTTPS |
-| PostgreSQL | Render Postgres (free) | 1GB, 90-day expiry on free tier |
-| Redis | Upstash (free) | 10k cmd/day, TLS (`rediss://`) |
-| Neo4j | AuraDB Free | 200MB, always-on |
+The project is not currently hosted. It runs fully via Docker Compose locally.
+See `docs/DEPLOYMENT.md` for instructions on deploying to Render + Vercel.
 
 ---
 
@@ -287,8 +273,8 @@ docker compose up --build -d
 # 2. Run all migrations
 docker exec spectra-backend alembic upgrade head
 
-# 3. Generate Phase 8+ synthetic data
-docker exec spectra-backend python -m app.data_gen.run --persons 200 --events 800
+# 3. Seed data (5,000 persons, 50,000 events)
+docker exec spectra-backend python -m app.data_gen.run --persons 5000 --events 50000
 
 # 4. Build Neo4j graph
 docker exec spectra-backend python -m app.data_gen.graph_builder
@@ -326,4 +312,4 @@ curl http://localhost:8000/api/v1/stream/assets/snapshot | python3 -m json.tool
 
 ---
 
-*Update this file before ending every session.*
+*Update this file at the end of each session.*

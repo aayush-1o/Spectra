@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ── Fleet size (configurable via module constant) ──────────────────────────────
-FLEET_SIZE = 20
+FLEET_SIZE = 60
 
 # ── Connection manager ─────────────────────────────────────────────────────────
 

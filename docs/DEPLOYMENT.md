@@ -1,9 +1,7 @@
-# Spectra — Deployment Guide (Phase 7)
+# Spectra — Deployment Guide
 
-> All data is 100% synthetic. No real surveillance.
-
-This is the step-by-step manual deployment guide for getting Spectra
-running publicly on Render (backend) + Vercel (frontend).
+Step-by-step guide for deploying Spectra to Render (backend) + Vercel (frontend).
+The project is not currently hosted; this documents the process for future deployment.
 
 ---
 
@@ -52,7 +50,7 @@ running publicly on Render (backend) + Vercel (frontend).
    NEO4J_USERNAME     = neo4j
    NEO4J_PASSWORD     = <from AuraDB>
    REDIS_URL          = rediss://default:xxxx@xxxx.upstash.io:6379
-   FRONTEND_URL       = https://spectra-simsight.vercel.app  (update after Vercel step)
+   FRONTEND_URL       = https://<your-vercel-url>  (update after Vercel step)
    ```
 6. Click **Deploy** — Render runs migrations then starts the server
 
@@ -68,10 +66,10 @@ running publicly on Render (backend) + Vercel (frontend).
 ### Verify backend is live
 
 ```bash
-curl https://spectra-api.onrender.com/health
-# → {"status":"ok","project":"Spectra","version":"0.7.0",...}
+curl https://<your-render-url>/health
+# → {"status":"ok","project":"Spectra",...}
 
-curl https://spectra-api.onrender.com/ready
+curl https://<your-render-url>/ready
 # → {"ready":true,"services":{...}}
 ```
 
@@ -90,10 +88,10 @@ curl https://spectra-api.onrender.com/ready
 4. **Root directory**: `frontend`
 5. **Environment variables** (in Vercel dashboard):
    ```
-   VITE_API_BASE_URL = https://spectra-api.onrender.com
+   VITE_API_BASE_URL = https://<your-render-url>
    ```
 6. Click **Deploy**
-7. Note your Vercel URL (e.g. `https://spectra-simsight.vercel.app`)
+7. Note your Vercel URL
 
 ### Option B: Vercel CLI
 
@@ -101,16 +99,16 @@ curl https://spectra-api.onrender.com/ready
 npm install -g vercel
 cd frontend
 vercel login
-vercel link          # creates .vercel/project.json
-vercel env add VITE_API_BASE_URL  # enter: https://spectra-api.onrender.com
+vercel link
+vercel env add VITE_API_BASE_URL  # enter: https://<your-render-url>
 vercel --prod
 ```
 
 ### Set FRONTEND_URL on Render
 
-After you have the Vercel URL, go back to Render:
+After you have the Vercel URL, go back to Render and set:
 ```
-FRONTEND_URL = https://spectra-simsight.vercel.app
+FRONTEND_URL = https://<your-vercel-url>
 ```
 Then **redeploy** the Render service so CORS allows the frontend.
 
@@ -129,12 +127,12 @@ Go to **GitHub repo → Settings → Secrets → Actions → New repository secr
 | `RENDER_DEPLOY_HOOK_URL` | Render service → Settings → Deploy Hooks → Create |
 | `VERCEL_TOKEN` | vercel.com/account/tokens → Create |
 | `VERCEL_ORG_ID` | Run `vercel link` → check `.vercel/project.json` |
-| `VERCEL_PROJECT_ID` | Same file as above |
+| `VERCEL_PROJECT_ID` | Same `.vercel/project.json` file |
 
 Also add a **repository variable** (not secret):
 | Variable | Value |
 |----------|-------|
-| `BACKEND_URL` | `https://spectra-api.onrender.com` |
+| `BACKEND_URL` | `https://<your-render-url>` |
 
 ---
 
@@ -153,12 +151,12 @@ alembic upgrade head
 
 ---
 
-## 7. Generate Synthetic Data in Production
+## 7. Seed Data After Deployment
 
 After the backend is live:
 ```bash
 # Via Render shell
-python -m app.data_gen.run --persons 200 --events 800
+python -m app.data_gen.run --persons 5000 --events 50000
 python -m app.data_gen.graph_builder
 ```
 

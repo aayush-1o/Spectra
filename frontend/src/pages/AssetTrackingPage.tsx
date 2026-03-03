@@ -6,6 +6,7 @@
  *        — Falls back to OpenStreetMap tiles if no Ion token
  * HUD:   Pure HTML/CSS overlay above the canvas — NOT inside Cesium
  * Modes: CSS filter classes (Normal / Night Vision / Thermal / Tactical)
+ * Visual: Auto-rotation, pulsing rings overlay, glow trails
  *
  * ⚠️ ALL DATA IS 100% SYNTHETIC — no real aircraft, drones, or vehicles.
  */
@@ -43,7 +44,7 @@ const WS_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000')
     .replace(/^http/, 'ws').replace(/\/$/, '') + '/api/v1/stream/assets'
 
 // ── Trail config ──────────────────────────────────────────────────────────────
-const TRAIL_LENGTH = 12
+const TRAIL_LENGTH = 20
 
 // ── Type colours ──────────────────────────────────────────────────────────────
 function typeColorCesium(type: string): Cesium.Color {
@@ -172,6 +173,122 @@ function useCursorCoords(viewerRef: React.RefObject<Cesium.Viewer | null>) {
     return coords
 }
 
+// ── Globe auto-rotation ────────────────────────────────────────────────────────
+// Slowly rotates the camera around the globe's Z axis when idle (no selection)
+function useGlobeAutoRotation(
+    viewerRef: React.RefObject<Cesium.Viewer | null>,
+    paused: boolean,
+) {
+    useEffect(() => {
+        const RATE = 0.04 // degrees per tick (~60 ticks/s → ~2.4 deg/s → full lap ~150s)
+        const id = setInterval(() => {
+            if (paused) return
+            const viewer = viewerRef.current
+            if (!viewer || viewer.isDestroyed()) return
+            viewer.scene.camera.rotate(
+                Cesium.Cartesian3.UNIT_Z,
+                Cesium.Math.toRadians(RATE),
+            )
+        }, 16) // ~60 fps
+        return () => clearInterval(id)
+    }, [viewerRef, paused])
+}
+
+// ── Pulsing rings canvas overlay ───────────────────────────────────────────────
+// Draws animated concentric rings around each asset icon on a 2D overlay canvas
+function PulsingRingsOverlay({
+    viewerRef,
+    positions,
+}: {
+    viewerRef: React.RefObject<Cesium.Viewer | null>
+    positions: Array<{ id: string; lat: number; lon: number; alt: number; type: string }>
+}) {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+    const frameRef = useRef<number>(0)
+    const startRef = useRef<number>(Date.now())
+
+    useEffect(() => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const ctx = canvas.getContext('2d')!
+
+        const TYPE_COLORS: Record<string, string> = {
+            flight: '59,130,246',
+            drone: '168,85,247',
+            vehicle: '16,185,129',
+        }
+
+        const draw = () => {
+            const viewer = viewerRef.current
+            if (!viewer || viewer.isDestroyed()) {
+                frameRef.current = requestAnimationFrame(draw)
+                return
+            }
+
+            // Sync canvas size to container
+            const parent = canvas.parentElement!
+            if (canvas.width !== parent.clientWidth) canvas.width = parent.clientWidth
+            if (canvas.height !== parent.clientHeight) canvas.height = parent.clientHeight
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+            const elapsed = (Date.now() - startRef.current) / 1000 // seconds
+
+            for (const pos of positions) {
+                const cartesian = Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt)
+                const windowCoord = Cesium.SceneTransforms.worldToWindowCoordinates(
+                    viewer.scene,
+                    cartesian,
+                )
+                if (!windowCoord) continue
+
+                const { x, y } = windowCoord
+                const rgb = TYPE_COLORS[pos.type] ?? '148,163,184'
+
+                // Draw 2 concentric pulsing rings per asset
+                for (let ring = 0; ring < 2; ring++) {
+                    // Each ring is offset in phase so they expand outward in sequence
+                    const phase = (elapsed * 0.8 + ring * 0.5) % 1.0
+                    const radius = 14 + phase * 28
+                    const alpha = (1 - phase) * (pos.type === 'flight' ? 0.7 : 0.55)
+
+                    ctx.beginPath()
+                    ctx.arc(x, y, radius, 0, Math.PI * 2)
+                    ctx.strokeStyle = `rgba(${rgb},${alpha.toFixed(2)})`
+                    ctx.lineWidth = pos.type === 'flight' ? 1.5 : 1.2
+                    ctx.stroke()
+                }
+
+                // Inner glow dot
+                const gDot = ctx.createRadialGradient(x, y, 0, x, y, 10)
+                gDot.addColorStop(0, `rgba(${rgb},0.45)`)
+                gDot.addColorStop(1, `rgba(${rgb},0)`)
+                ctx.beginPath()
+                ctx.arc(x, y, 10, 0, Math.PI * 2)
+                ctx.fillStyle = gDot
+                ctx.fill()
+            }
+
+            frameRef.current = requestAnimationFrame(draw)
+        }
+
+        frameRef.current = requestAnimationFrame(draw)
+        return () => cancelAnimationFrame(frameRef.current)
+    }, [viewerRef, positions])
+
+    return (
+        <canvas
+            ref={canvasRef}
+            style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                zIndex: 6,
+            }}
+        />
+    )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AssetTrackingPage() {
     const { assetList, manifest, connected, error, history } = useAssetStream(WS_URL)
@@ -186,6 +303,9 @@ export default function AssetTrackingPage() {
     const viewerRef = useRef<Cesium.Viewer | null>(null)
     const utcTime = useUtcClock()
     const cursorCoords = useCursorCoords(viewerRef)
+
+    // Auto-rotation: paused when an asset is selected or user is scrubbing
+    useGlobeAutoRotation(viewerRef, selected !== null || !isLive)
 
     // Trail ref
     const trailRef = useRef<Record<string, [number, number, number][]>>({})
@@ -202,6 +322,18 @@ export default function AssetTrackingPage() {
         if (!isLive && scrubEntry) return Object.values(scrubEntry.positions)
         return assetList
     }, [isLive, scrubEntry, assetList])
+
+    // Pulsing rings data — derived from display positions (must be after displayPositions)
+    const ringPositions = useMemo(() =>
+        displayPositions.map(pos => ({
+            id: pos.id,
+            lat: pos.lat,
+            lon: pos.lon,
+            alt: renderAltitude(pos),
+            type: pos.asset_type,
+        })),
+        [displayPositions]
+    )
 
     const counts = useMemo(() => ({
         drone: displayPositions.filter(p => p.asset_type === 'drone').length,
@@ -286,17 +418,17 @@ export default function AssetTrackingPage() {
                                 duration={0}
                             />
 
-                            {/* Trails */}
+                            {/* Trails — enhanced glow */}
                             <PolylineCollection>
                                 {trailData.map((trail, i) => (
                                     <Polyline
                                         key={i}
                                         positions={trail.positions}
                                         material={new Cesium.PolylineGlowMaterialProperty({
-                                            glowPower: 0.15,
+                                            glowPower: 0.35,
                                             color: trail.color,
                                         }) as unknown as Cesium.Material}
-                                        width={2.5}
+                                        width={3}
                                     />
                                 ))}
                             </PolylineCollection>
@@ -327,6 +459,12 @@ export default function AssetTrackingPage() {
                             </BillboardCollection>
                         </Viewer>
                     </div>
+
+                    {/* ── Pulsing rings canvas overlay ─────────────────── */}
+                    <PulsingRingsOverlay
+                        viewerRef={viewerRef}
+                        positions={ringPositions}
+                    />
 
                     {/* ── Tactical grid overlay ───────────────────────── */}
                     {viewMode === 'tactical' && (
